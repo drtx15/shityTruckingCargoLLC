@@ -4,11 +4,23 @@ from threading import Lock, Thread
 
 import requests
 
-from simulation.movement import point_at_progress, route_distance_km
-from simulation.trucks import SimulatedTruck
+from simulation.movement import (
+    build_route_segments,
+    heading_degrees,
+    point_at_progress,
+    route_distance_km,
+    segment_at_progress,
+)
+from simulation.trucks import DELAYED, IDLE, MOVING, STOPPED, SimulatedTruck
 
 
 class SimulationEngine:
+    TRAFFIC_STOP_PROBABILITY = 0.018
+    TRAFFIC_DELAY_PROBABILITY = 0.03
+    BREAKDOWN_PROBABILITY = 0.004
+    COMMUNICATION_LOSS_PROBABILITY = 0.01
+    REROUTE_PROBABILITY = 0.005
+
     def __init__(self, backend_url: str):
         self.backend_url = backend_url.rstrip('/')
         self.trucks = {}
@@ -18,15 +30,41 @@ class SimulationEngine:
         if not truck.route_polyline or len(truck.route_polyline) < 2:
             raise ValueError('Route polyline is required')
 
+        route_distance = route_distance_km(truck.route_polyline)
+        if route_distance <= 0:
+            raise ValueError('Route distance must be greater than zero')
+
+        route_segments = build_route_segments(truck.route_polyline)
+        start_lat, start_lng = point_at_progress(truck.route_polyline, 0.0)
+
+        truck.route_distance_km = route_distance
+        truck.route_segments = route_segments
+        truck.current_lat = start_lat
+        truck.current_lng = start_lng
+        truck.current_speed_kph = 0.0
+        truck.state = MOVING
+        truck.active = True
+        truck.progress = 0.0
+
+        # Profile per truck to avoid uniform convoy-like behavior.
+        truck.cruise_speed_kph = random.uniform(58.0, 92.0)
+        truck.accel_kph_per_s = random.uniform(6.0, 14.0)
+        truck.decel_kph_per_s = random.uniform(8.0, 20.0)
+        truck.speed_factor = 1.0
+        truck.pause_until_ts = 0.0
+        truck.delayed_until_ts = 0.0
+        truck.comms_silence_until_ts = 0.0
+        truck.delay_reason = None
+
         with self._lock:
+            existing = self.trucks.get(truck.truck_id)
+            if existing:
+                existing.active = False
             self.trucks[truck.truck_id] = truck
 
-        lat, lng = point_at_progress(truck.route_polyline, 0.0)
-        with self._lock:
-            truck.current_lat = lat
-            truck.current_lng = lng
+        self._emit_payload(truck, event_type='RESUMED', reason='SIMULATION_STARTED')
 
-        thread = Thread(target=self._run_loop, args=(truck.truck_id,), daemon=True)
+        thread = Thread(target=self._run_loop, args=(truck,), daemon=True)
         thread.start()
 
     def get_state(self):
@@ -35,58 +73,227 @@ class SimulationEngine:
                 truck_id: {
                     'progress': truck.progress,
                     'speed': truck.current_speed_kph,
+                    'state': truck.state,
+                    'heading': truck.heading_deg,
                     'active': truck.active,
                 }
                 for truck_id, truck in self.trucks.items()
             }
 
-    def _run_loop(self, truck_id: int):
+    def _run_loop(self, truck: SimulatedTruck):
         while True:
+            pending_events = []
+
             with self._lock:
-                truck = self.trucks.get(truck_id)
-                if not truck or not truck.active:
+                mapped = self.trucks.get(truck.truck_id)
+                if mapped is not truck or not truck.active:
                     return
 
-            tick_seconds = random.uniform(1.0, 2.0)
+                now = time.time()
+                pending_events.extend(self._update_runtime_events(truck, now))
 
-            # Random short stop to emulate traffic or loading delay.
-            should_stop = random.random() < 0.12
-            speed = 0.0 if should_stop else random.uniform(25.0, 65.0)
-            distance_km = route_distance_km(truck.route_polyline)
-
-            if distance_km <= 0:
-                progress_step = 1.0
-            else:
-                progress_step = (speed * (tick_seconds / 3600.0)) / distance_km
-
-            with self._lock:
-                truck.current_speed_kph = speed
-                truck.progress = min(1.0, truck.progress + progress_step)
-                lat, lng = point_at_progress(truck.route_polyline, truck.progress)
-                truck.current_lat = lat
-                truck.current_lng = lng
-
-            payload = {
-                'truckId': truck.truck_id,
-                'lat': lat,
-                'lng': lng,
-                'speed': round(speed, 2),
-                'timestamp': int(time.time()),
-            }
-
-            try:
-                requests.post(
-                    f'{self.backend_url}/internal/location-update',
-                    json=payload,
-                    timeout=4,
+                target_speed = self._target_speed_kph(truck)
+                truck.current_speed_kph = self._apply_accel_decel(
+                    current=truck.current_speed_kph,
+                    target=target_speed,
+                    accel_per_s=truck.accel_kph_per_s,
+                    decel_per_s=truck.decel_kph_per_s,
+                    dt_seconds=1.0,
                 )
-            except requests.RequestException:
-                # Simulator keeps running; backend is the owner of state and can recover.
-                pass
 
-            if truck.progress >= 1.0:
+                substeps = max(2, min(6, int(truck.current_speed_kph / 20.0) + 2))
+                progress_step = self._progress_step(truck, truck.current_speed_kph, dt_seconds=1.0)
+                progress_per_substep = progress_step / substeps if substeps > 0 else progress_step
+
+            for event_type, reason in pending_events:
+                self._emit_payload(truck, event_type=event_type, reason=reason)
+
+            substep_delay = random.uniform(0.12, 0.3)
+            for _ in range(substeps):
                 with self._lock:
-                    truck.active = False
-                return
+                    mapped = self.trucks.get(truck.truck_id)
+                    if mapped is not truck or not truck.active:
+                        return
 
-            time.sleep(tick_seconds)
+                    truck.progress = min(1.0, truck.progress + progress_per_substep)
+                    clean_lat, clean_lng = point_at_progress(truck.route_polyline, truck.progress)
+                    segment = segment_at_progress(
+                        truck.route_segments,
+                        truck.route_distance_km,
+                        truck.progress,
+                    )
+                    zone = segment['zone'] if segment else 'rural'
+
+                    previous = {'lat': truck.current_lat or clean_lat, 'lng': truck.current_lng or clean_lng}
+                    current = {'lat': clean_lat, 'lng': clean_lng}
+                    truck.heading_deg = heading_degrees(previous, current)
+                    noisy_lat, noisy_lng, accuracy = self._add_gps_noise(clean_lat, clean_lng, zone)
+                    truck.current_lat = noisy_lat
+                    truck.current_lng = noisy_lng
+                    truck.gps_accuracy_m = accuracy
+
+                    should_emit_location = time.time() >= truck.comms_silence_until_ts
+
+                if should_emit_location:
+                    self._emit_payload(truck, event_type='LOCATION_UPDATE')
+
+                if truck.progress >= 1.0:
+                    with self._lock:
+                        truck.current_speed_kph = 0.0
+                        truck.state = IDLE
+                        truck.active = False
+                    self._emit_payload(truck, event_type='STOPPED', reason='DESTINATION_REACHED')
+                    return
+
+                time.sleep(substep_delay)
+
+    def _update_runtime_events(self, truck: SimulatedTruck, now: float):
+        events = []
+        previous_state = truck.state
+
+        if now >= truck.pause_until_ts and now >= truck.delayed_until_ts and truck.state in (STOPPED, DELAYED):
+            truck.state = MOVING
+            truck.speed_factor = 1.0
+            truck.delay_reason = None
+            events.append(('RESUMED', 'TRAFFIC_CLEARED'))
+
+        if truck.state != MOVING:
+            return events
+
+        if random.random() < self.TRAFFIC_STOP_PROBABILITY:
+            truck.pause_until_ts = now + random.uniform(10.0, 30.0)
+            truck.state = STOPPED
+            truck.delay_reason = 'TRAFFIC_STOP'
+            events.append(('STOPPED', truck.delay_reason))
+            return events
+
+        if random.random() < self.BREAKDOWN_PROBABILITY:
+            truck.pause_until_ts = now + random.uniform(35.0, 90.0)
+            truck.state = STOPPED
+            truck.breakdown_count += 1
+            truck.delay_reason = 'BREAKDOWN'
+            events.append(('STOPPED', truck.delay_reason))
+            return events
+
+        if random.random() < self.TRAFFIC_DELAY_PROBABILITY:
+            truck.delayed_until_ts = now + random.uniform(8.0, 28.0)
+            truck.state = DELAYED
+            truck.speed_factor = random.uniform(0.1, 0.3)
+            truck.delay_reason = 'TRAFFIC_JAM'
+            events.append(('DELAYED', truck.delay_reason))
+
+        if random.random() < self.REROUTE_PROBABILITY:
+            truck.progress = max(0.0, truck.progress - random.uniform(0.04, 0.12))
+            truck.reroute_count += 1
+            truck.delayed_until_ts = max(truck.delayed_until_ts, now + random.uniform(5.0, 12.0))
+            truck.state = DELAYED
+            truck.speed_factor = min(truck.speed_factor, 0.55)
+            truck.delay_reason = 'REROUTE'
+            events.append(('DELAYED', truck.delay_reason))
+
+        if random.random() < self.COMMUNICATION_LOSS_PROBABILITY:
+            truck.comms_silence_until_ts = now + random.uniform(8.0, 20.0)
+            events.append(('DELAYED', 'COMMUNICATION_LOSS'))
+
+        if previous_state != truck.state and truck.state == MOVING:
+            events.append(('RESUMED', 'STATE_RECOVERED'))
+
+        return events
+
+    def _target_speed_kph(self, truck: SimulatedTruck):
+        if truck.state == STOPPED:
+            return 0.0
+
+        segment = segment_at_progress(
+            truck.route_segments,
+            truck.route_distance_km,
+            truck.progress,
+        )
+        zone = segment['zone'] if segment else 'rural'
+        turn_angle = segment['turn_angle_deg'] if segment else 0.0
+
+        speed = truck.cruise_speed_kph
+
+        # Ramp up out of origin and down near destination for realistic profile.
+        if truck.progress < 0.12:
+            speed *= 0.32 + (truck.progress / 0.12) * 0.68
+        elif truck.progress > 0.82:
+            remaining = max(0.0, 1.0 - truck.progress)
+            speed *= max(0.22, remaining / 0.18)
+
+        if turn_angle > 35.0:
+            speed *= 0.55
+        elif turn_angle > 18.0:
+            speed *= 0.75
+
+        if zone == 'urban':
+            speed *= random.uniform(0.55, 0.82)
+        elif zone == 'highway':
+            speed *= random.uniform(0.98, 1.12)
+        else:
+            speed *= random.uniform(0.75, 0.98)
+
+        if truck.state == DELAYED:
+            speed *= truck.speed_factor
+
+        return max(0.0, min(120.0, speed))
+
+    def _progress_step(self, truck: SimulatedTruck, speed_kph: float, dt_seconds: float):
+        if truck.route_distance_km <= 0:
+            return 1.0
+
+        distance_step = speed_kph * (dt_seconds / 3600.0)
+        return distance_step / truck.route_distance_km
+
+    def _apply_accel_decel(
+        self,
+        current: float,
+        target: float,
+        accel_per_s: float,
+        decel_per_s: float,
+        dt_seconds: float,
+    ):
+        if target >= current:
+            return min(target, current + accel_per_s * dt_seconds)
+        return max(target, current - decel_per_s * dt_seconds)
+
+    def _add_gps_noise(self, lat: float, lng: float, zone: str):
+        jitter = random.uniform(0.0001, 0.0003)
+        if zone == 'highway':
+            jitter *= 0.7
+            accuracy = random.uniform(4.0, 7.0)
+        elif zone == 'urban':
+            jitter *= 1.2
+            accuracy = random.uniform(6.0, 12.0)
+        else:
+            accuracy = random.uniform(5.0, 9.0)
+
+        noisy_lat = lat + random.uniform(-jitter, jitter)
+        noisy_lng = lng + random.uniform(-jitter, jitter)
+        return noisy_lat, noisy_lng, round(accuracy, 2)
+
+    def _emit_payload(self, truck: SimulatedTruck, event_type: str, reason: str | None = None):
+        payload = {
+            'truckId': truck.truck_id,
+            'lat': truck.current_lat,
+            'lng': truck.current_lng,
+            'speed': round(truck.current_speed_kph, 2),
+            'heading': round(truck.heading_deg, 2),
+            'accuracy': truck.gps_accuracy_m,
+            'eventType': event_type,
+            'state': truck.state,
+            'timestamp': int(time.time()),
+        }
+
+        if reason:
+            payload['reason'] = reason
+
+        try:
+            requests.post(
+                f'{self.backend_url}/internal/location-update',
+                json=payload,
+                timeout=4,
+            )
+        except requests.RequestException:
+            # The simulator should remain independent from transient backend issues.
+            pass

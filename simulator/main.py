@@ -14,6 +14,10 @@ class StartSimulationRequest(BaseModel):
     shipmentId: int
 
 
+class StartSimulationBatchRequest(BaseModel):
+    simulations: list[StartSimulationRequest]
+
+
 backend_url = os.getenv('BACKEND_URL', 'http://localhost:3000')
 engine = SimulationEngine(backend_url=backend_url)
 
@@ -48,3 +52,32 @@ def start_simulation(request: StartSimulationRequest):
     )
     engine.start(truck)
     return {'accepted': True, 'truckId': request.truckId}
+
+
+@app.post('/simulate/start-many')
+def start_simulation_many(request: StartSimulationBatchRequest):
+    accepted = []
+
+    for simulation in request.simulations:
+        route_response = requests.get(
+            f'{backend_url}/shipments/{simulation.shipmentId}/route',
+            timeout=4,
+        )
+
+        if route_response.status_code != 200:
+            continue
+
+        route_polyline = route_response.json()
+        truck = SimulatedTruck(
+            truck_id=simulation.truckId,
+            route_polyline=route_polyline,
+        )
+        engine.start(truck)
+        accepted.append(simulation.truckId)
+
+    return {
+        'accepted': True,
+        'startedTruckIds': accepted,
+        'requested': len(request.simulations),
+        'started': len(accepted),
+    }
