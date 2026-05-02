@@ -7,7 +7,6 @@ const {
 const { startSimulation } = require('../services/simulator-service')
 const { searchLocations } = require('../services/geocoding-service')
 const { planShipmentRoute } = require('../services/route-planner')
-const config = require('../config')
 
 function normalizeLocationText(value) {
     return typeof value === 'string' ? value.trim() : ''
@@ -30,22 +29,6 @@ function normalizeRoutePolyline(routePolyline) {
             return { lat, lng }
         })
         .filter(Boolean)
-}
-
-function simplifyRoutePolyline(routePolyline, maxPoints = config.trackingRouteMaxPoints) {
-    if (!Array.isArray(routePolyline) || routePolyline.length <= maxPoints) {
-        return routePolyline || []
-    }
-
-    const stride = Math.ceil(routePolyline.length / maxPoints)
-    const simplified = routePolyline.filter((_, index) => index % stride === 0)
-    const lastPoint = routePolyline[routePolyline.length - 1]
-
-    if (simplified[simplified.length - 1] !== lastPoint) {
-        simplified.push(lastPoint)
-    }
-
-    return simplified
 }
 
 function buildShipmentCreateData(routePlan) {
@@ -267,7 +250,7 @@ async function shipmentRoutes(app) {
             route: {
                 origin: { lat: shipment.originLat, lng: shipment.originLng },
                 destination: { lat: shipment.destinationLat, lng: shipment.destinationLng },
-                routePolyline: simplifyRoutePolyline(shipment.routePolyline || [])
+                routePolyline: normalizeRoutePolyline(shipment.routePolyline || [])
             },
             truck: shipment.assignedTruck,
             checkpoints: shipment.checkpoints

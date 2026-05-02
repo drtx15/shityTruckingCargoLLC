@@ -46,6 +46,37 @@ function formatCountdown(etaMinutes) {
     return `${Math.round(etaMinutes / 60)} h ${Math.round(etaMinutes % 60)} m`
 }
 
+function formatTelemetryAge(value) {
+    if (!value) {
+        return 'Awaiting first GPS update'
+    }
+
+    const ageSeconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000))
+
+    if (ageSeconds < 5) {
+        return 'Live now'
+    }
+
+    if (ageSeconds < 60) {
+        return `${ageSeconds}s ago`
+    }
+
+    const ageMinutes = Math.round(ageSeconds / 60)
+    return `${ageMinutes}m ago`
+}
+
+function getTruckTelemetryLabel(truck) {
+    if (!truck) {
+        return 'Unassigned'
+    }
+
+    if (truck.lastUpdatedAt) {
+        return `Updated ${formatTelemetryAge(truck.lastUpdatedAt)}`
+    }
+
+    return 'Assigned, awaiting GPS fix'
+}
+
 function buildActivityFeed(tracking) {
     const feed = []
 
@@ -236,15 +267,20 @@ function ShipmentDetailPage() {
     }, [id])
 
     const activityFeed = useMemo(() => buildActivityFeed(tracking), [tracking])
+    const truckTelemetryLabel = getTruckTelemetryLabel(tracking?.truck)
+    const truckSpeedText = tracking?.truck?.currentSpeed !== null && tracking?.truck?.currentSpeed !== undefined
+        ? `${Math.round(tracking.truck.currentSpeed)} kph`
+        : 'Awaiting first GPS update'
     const truckPosition = tracking?.truck?.currentLat !== null && tracking?.truck?.currentLat !== undefined && tracking?.truck?.currentLng !== null && tracking?.truck?.currentLng !== undefined
         ? [tracking.truck.currentLat, tracking.truck.currentLng]
         : null
     const distanceRemainingKm = truckPosition
         ? haversineKm(truckPosition[0], truckPosition[1], tracking.route.destination.lat, tracking.route.destination.lng)
-        : null
+        : tracking?.truck ? null : null
     const remainingEta = tracking?.etaMinutes !== null && tracking?.etaMinutes !== undefined
         ? formatCountdown(tracking.etaMinutes)
         : 'Pending'
+    const lastUpdateValue = tracking?.truck?.lastUpdatedAt || tracking?.updatedAt || tracking?.createdAt || Date.now()
 
     if (error) {
         return (
@@ -294,11 +330,7 @@ function ShipmentDetailPage() {
                 <div className="metrics-grid">
                     <div className="metric-card">
                         <span>Current speed</span>
-                        <strong>
-                            {tracking.truck?.currentSpeed !== null && tracking.truck?.currentSpeed !== undefined
-                                ? `${Math.round(tracking.truck.currentSpeed)} kph`
-                                : 'N/A'}
-                        </strong>
+                        <strong>{truckSpeedText}</strong>
                     </div>
                     <div className="metric-card">
                         <span>ETA countdown</span>
@@ -307,14 +339,20 @@ function ShipmentDetailPage() {
                     <div className="metric-card">
                         <span>Distance remaining</span>
                         <strong>
-                            {distanceRemainingKm !== null
+                            {truckPosition
                                 ? `${distanceRemainingKm.toFixed(1)} km`
-                                : 'N/A'}
+                                : tracking?.truck
+                                    ? 'Awaiting first GPS update'
+                                    : 'Unassigned'}
                         </strong>
                     </div>
                     <div className="metric-card">
                         <span>Last update</span>
-                        <strong>{new Date(tracking.updatedAt || tracking.createdAt || Date.now()).toLocaleString()}</strong>
+                        <strong>{new Date(lastUpdateValue).toLocaleString()}</strong>
+                    </div>
+                    <div className="metric-card">
+                        <span>Truck telemetry</span>
+                        <strong>{truckTelemetryLabel}</strong>
                     </div>
                 </div>
 

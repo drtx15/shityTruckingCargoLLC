@@ -166,7 +166,11 @@ function ShipmentList({
 
                                 <div className="shipment-cell">
                                     <strong>{assignedTruck ? assignedTruck.label : 'Unassigned'}</strong>
-                                    <small>{assignedTruck ? assignedTruck.status : 'Ready for dispatch'}</small>
+                                    <small>
+                                        {assignedTruck
+                                            ? `${assignedTruck.status}${assignedTruck.lastUpdatedAt ? ` • ${formatRelativeTime(assignedTruck.lastUpdatedAt)}` : ' • Awaiting GPS fix'}`
+                                            : 'Ready for dispatch'}
+                                    </small>
                                 </div>
 
                                 <div className="shipment-cell">

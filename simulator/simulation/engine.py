@@ -5,14 +5,9 @@ from threading import Lock, Thread
 import requests
 
 from config import (
-    BREAKDOWN_PROBABILITY,
-    COMMUNICATION_LOSS_PROBABILITY,
     LOCATION_EMIT_INTERVAL_SECONDS,
     LOOP_TICK_SECONDS,
     MAX_ROUTE_POINTS,
-    REROUTE_PROBABILITY,
-    TRAFFIC_DELAY_PROBABILITY,
-    TRAFFIC_STOP_PROBABILITY,
 )
 from simulation.movement import (
     build_route_segments,
@@ -22,7 +17,7 @@ from simulation.movement import (
     simplify_route_polyline,
     segment_at_progress,
 )
-from simulation.trucks import DELAYED, IDLE, MOVING, STOPPED, SimulatedTruck
+from simulation.trucks import IDLE, MOVING, STOPPED, SimulatedTruck
 
 
 class SimulationEngine:
@@ -57,13 +52,8 @@ class SimulationEngine:
         truck.cruise_speed_kph = random.uniform(58.0, 92.0)
         truck.accel_kph_per_s = random.uniform(6.0, 14.0)
         truck.decel_kph_per_s = random.uniform(8.0, 20.0)
-        truck.speed_factor = 1.0
-        truck.pause_until_ts = 0.0
-        truck.delayed_until_ts = 0.0
-        truck.comms_silence_until_ts = 0.0
         truck.next_location_emit_ts = 0.0
         truck.location_emit_interval_s = LOCATION_EMIT_INTERVAL_SECONDS
-        truck.delay_reason = None
 
         with self._lock:
             existing = self.trucks.get(truck.truck_id)
@@ -91,15 +81,10 @@ class SimulationEngine:
 
     def _run_loop(self, truck: SimulatedTruck):
         while True:
-            pending_events = []
-
             with self._lock:
                 mapped = self.trucks.get(truck.truck_id)
                 if mapped is not truck or not truck.active:
                     return
-
-                now = time.time()
-                pending_events.extend(self._update_runtime_events(truck, now))
 
                 target_speed = self._target_speed_kph(truck)
                 truck.current_speed_kph = self._apply_accel_decel(
@@ -113,9 +98,6 @@ class SimulationEngine:
                 substeps = max(1, min(3, int(truck.current_speed_kph / 30.0) + 1))
                 progress_step = self._progress_step(truck, truck.current_speed_kph, dt_seconds=LOOP_TICK_SECONDS)
                 progress_per_substep = progress_step / substeps if substeps > 0 else progress_step
-
-            for event_type, reason in pending_events:
-                self._emit_payload(truck, event_type=event_type, reason=reason)
 
             substep_delay = random.uniform(0.25, 0.5)
             for _ in range(substeps):
@@ -142,10 +124,7 @@ class SimulationEngine:
                     truck.gps_accuracy_m = accuracy
 
                     now = time.time()
-                    should_emit_location = (
-                        now >= truck.comms_silence_until_ts
-                        and now >= truck.next_location_emit_ts
-                    )
+                    should_emit_location = now >= truck.next_location_emit_ts
                     if should_emit_location:
                         truck.next_location_emit_ts = now + truck.location_emit_interval_s
 
@@ -161,59 +140,6 @@ class SimulationEngine:
                     return
 
                 time.sleep(substep_delay)
-
-    def _update_runtime_events(self, truck: SimulatedTruck, now: float):
-        events = []
-        previous_state = truck.state
-
-        if now >= truck.pause_until_ts and now >= truck.delayed_until_ts and truck.state in (STOPPED, DELAYED):
-            truck.state = MOVING
-            truck.speed_factor = 1.0
-            truck.delay_reason = None
-            events.append(('RESUMED', 'TRAFFIC_CLEARED'))
-
-        if truck.state != MOVING:
-            return events
-
-        if random.random() < TRAFFIC_STOP_PROBABILITY:
-            truck.pause_until_ts = now + random.uniform(10.0, 30.0)
-            truck.state = STOPPED
-            truck.delay_reason = 'TRAFFIC_STOP'
-            events.append(('STOPPED', truck.delay_reason))
-            return events
-
-        if random.random() < BREAKDOWN_PROBABILITY:
-            truck.pause_until_ts = now + random.uniform(35.0, 90.0)
-            truck.state = STOPPED
-            truck.breakdown_count += 1
-            truck.delay_reason = 'BREAKDOWN'
-            events.append(('STOPPED', truck.delay_reason))
-            return events
-
-        if random.random() < TRAFFIC_DELAY_PROBABILITY:
-            truck.delayed_until_ts = now + random.uniform(8.0, 28.0)
-            truck.state = DELAYED
-            truck.speed_factor = random.uniform(0.1, 0.3)
-            truck.delay_reason = 'TRAFFIC_JAM'
-            events.append(('DELAYED', truck.delay_reason))
-
-        if random.random() < REROUTE_PROBABILITY:
-            truck.progress = max(0.0, truck.progress - random.uniform(0.04, 0.12))
-            truck.reroute_count += 1
-            truck.delayed_until_ts = max(truck.delayed_until_ts, now + random.uniform(5.0, 12.0))
-            truck.state = DELAYED
-            truck.speed_factor = min(truck.speed_factor, 0.55)
-            truck.delay_reason = 'REROUTE'
-            events.append(('DELAYED', truck.delay_reason))
-
-        if random.random() < COMMUNICATION_LOSS_PROBABILITY:
-            truck.comms_silence_until_ts = now + random.uniform(8.0, 20.0)
-            events.append(('DELAYED', 'COMMUNICATION_LOSS'))
-
-        if previous_state != truck.state and truck.state == MOVING:
-            events.append(('RESUMED', 'STATE_RECOVERED'))
-
-        return events
 
     def _target_speed_kph(self, truck: SimulatedTruck):
         if truck.state == STOPPED:
@@ -247,9 +173,6 @@ class SimulationEngine:
             speed *= random.uniform(0.98, 1.12)
         else:
             speed *= random.uniform(0.75, 0.98)
-
-        if truck.state == DELAYED:
-            speed *= truck.speed_factor
 
         return max(0.0, min(120.0, speed))
 

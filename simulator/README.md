@@ -7,8 +7,8 @@ This service simulates truck movement and emits periodic GPS events to the core 
 - Speed profile per truck: acceleration, cruising, and deceleration
 - Segment-aware movement: slows down on dense turns, faster on straights
 - Smooth interpolation: emits sub-steps instead of point-to-point jumps
-- State machine: `IDLE`, `MOVING`, `STOPPED`, `DELAYED`
-- Traffic and failure events: random delays, stops, breakdowns, communication loss, reroute
+- State machine: `IDLE`, `MOVING`, `STOPPED`
+- Continuous movement without intentional delay injection
 - Multi-truck stress mode via batch start endpoint
 
 ## Rules
