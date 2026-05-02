@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
     assignTruck,
+    deleteShipment,
     getTracking,
     getTrucks,
     pauseShipment,
@@ -11,6 +12,7 @@ import {
 } from '../api'
 import StatusTimeline from '../components/StatusTimeline'
 import TrackingMap from '../map/TrackingMap'
+import { ArrowLeftIcon, IconButton, IconLink, PauseIcon, PlayIcon, RouteIcon, TrashIcon } from '../components/IconControls'
 
 const statusMeta = {
     PENDING: { label: 'Created', className: 'status-created' },
@@ -254,6 +256,21 @@ function ShipmentDetailPage() {
         }
     }
 
+    const handleDeleteShipment = async () => {
+        const confirmed = window.confirm('Delete this shipment?')
+
+        if (!confirmed) {
+            return
+        }
+
+        try {
+            await deleteShipment(id)
+            window.location.href = '/'
+        } catch (deleteError) {
+            setActionError(deleteError.message)
+        }
+    }
+
     useEffect(() => {
         load()
         const timer = setInterval(load, 2500)
@@ -285,9 +302,7 @@ function ShipmentDetailPage() {
     if (error) {
         return (
             <section className="detail-grid">
-                <Link to="/" className="ghost-link">
-                    Back to dashboard
-                </Link>
+                <IconLink to="/" icon={ArrowLeftIcon} label="Back to dashboard" className="icon-link--soft" />
                 <p className="error-text">{error}</p>
             </section>
         )
@@ -304,9 +319,7 @@ function ShipmentDetailPage() {
     return (
         <section className="detail-grid">
             <div className="detail-topbar">
-                <Link to="/" className="ghost-link">
-                    Back to dashboard
-                </Link>
+                <IconLink to="/" icon={ArrowLeftIcon} label="Back to dashboard" className="icon-link--soft" />
                 <span className={`status-badge ${(statusMeta[tracking.status] || statusMeta.PENDING).className}`}>
                     {(statusMeta[tracking.status] || statusMeta.PENDING).label}
                 </span>
@@ -322,9 +335,21 @@ function ShipmentDetailPage() {
                             {tracking.destinationLabel || 'Destination'}
                         </h2>
                     </div>
-                    <button type="button" className="secondary-button" onClick={handlePauseToggle}>
-                        {tracking.isPaused ? 'Resume shipment' : 'Pause shipment'}
-                    </button>
+                    <IconButton
+                        type="button"
+                        icon={tracking.isPaused ? PlayIcon : PauseIcon}
+                        label={tracking.isPaused ? 'Resume shipment' : 'Pause shipment'}
+                        className="icon-button--soft"
+                        aria-pressed={tracking.isPaused}
+                        onClick={handlePauseToggle}
+                    />
+                    <IconButton
+                        type="button"
+                        icon={TrashIcon}
+                        label="Delete shipment"
+                        className="icon-button--soft"
+                        onClick={handleDeleteShipment}
+                    />
                 </div>
 
                 <div className="metrics-grid">
@@ -399,9 +424,7 @@ function ShipmentDetailPage() {
                                 ))}
                             </div>
                         )}
-                        <button type="button" onClick={handleDestinationUpdate}>
-                            Re-route shipment
-                        </button>
+                        <IconButton type="button" icon={RouteIcon} label="Re-route shipment" onClick={handleDestinationUpdate} />
                     </div>
                 </div>
 

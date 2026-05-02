@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchLocations } from '../api'
 import TrackingMap from '../map/TrackingMap'
+import { IconButton, PlusIcon, SwapIcon } from './IconControls'
 
 const initialForm = {
     origin: '',
@@ -104,8 +105,6 @@ function ShipmentForm({ onCreate }) {
         })
     }
 
-    const topOrigin = originSuggestions[0]
-    const topDestination = destinationSuggestions[0]
     const previewRoute = selectedOrigin && selectedDestination
         ? {
             origin: { lat: selectedOrigin.lat, lng: selectedOrigin.lng },
@@ -118,12 +117,9 @@ function ShipmentForm({ onCreate }) {
         <form className="panel form-panel" onSubmit={submit}>
             <div className="form-header">
                 <div>
-                    <p className="eyebrow">Shipment lifecycle</p>
                     <h2>Create shipment</h2>
                 </div>
-                <button type="button" className="secondary-button" onClick={swapLocations}>
-                    Swap route
-                </button>
+                <IconButton type="button" icon={SwapIcon} label="Swap route" className="icon-button--soft" onClick={swapLocations} />
             </div>
             <div className="form-grid">
                 <div className="suggestion-field">
@@ -134,16 +130,10 @@ function ShipmentForm({ onCreate }) {
                         value={form.origin}
                         onChange={handleChange}
                         onFocus={() => queueLookup('origin', form.origin)}
-                        placeholder="e.g. Tashkent or Amir Temur Avenue 10"
                         minLength={2}
                         autoComplete="off"
                         required
                     />
-                    {selectedOrigin && (
-                        <p className="location-chip">
-                            Selected {selectedOrigin.label} {selectedOrigin.lat.toFixed(4)}, {selectedOrigin.lng.toFixed(4)}
-                        </p>
-                    )}
                     {originSuggestions.length > 0 && (
                         <div className="suggestions-menu" role="listbox" aria-label="Origin suggestions">
                             {originSuggestions.map((location) => (
@@ -171,16 +161,10 @@ function ShipmentForm({ onCreate }) {
                         value={form.destination}
                         onChange={handleChange}
                         onFocus={() => queueLookup('destination', form.destination)}
-                        placeholder="e.g. Berlin or 10115"
                         minLength={2}
                         autoComplete="off"
                         required
                     />
-                    {selectedDestination && (
-                        <p className="location-chip">
-                            Selected {selectedDestination.label} {selectedDestination.lat.toFixed(4)}, {selectedDestination.lng.toFixed(4)}
-                        </p>
-                    )}
                     {destinationSuggestions.length > 0 && (
                         <div className="suggestions-menu" role="listbox" aria-label="Destination suggestions">
                             {destinationSuggestions.map((location) => (
@@ -200,33 +184,17 @@ function ShipmentForm({ onCreate }) {
                     )}
                 </div>
             </div>
-            <p className="form-note">Type at least 2 characters to get OpenStreetMap suggestions.</p>
-            {topOrigin && (
-                <p className="form-note">
-                    Origin top match: {topOrigin.lat.toFixed(4)}, {topOrigin.lng.toFixed(4)}
-                </p>
-            )}
-            {topDestination && (
-                <p className="form-note">
-                    Destination top match: {topDestination.lat.toFixed(4)}, {topDestination.lng.toFixed(4)}
-                </p>
-            )}
             {lookupError && <p className="error-text">{lookupError}</p>}
             <div className="preview-shell">
-                {previewRoute ? (
+                {previewRoute && (
                     <TrackingMap
                         route={previewRoute}
                         compact
                         heading="Mini map preview"
                     />
-                ) : (
-                    <div className="preview-empty">
-                        <p className="eyebrow">Selected locations</p>
-                        <strong>Choose origin and destination suggestions to preview the route.</strong>
-                    </div>
                 )}
             </div>
-            <button type="submit">Create</button>
+            <IconButton type="submit" icon={PlusIcon} label="Create shipment" />
         </form>
     )
 }

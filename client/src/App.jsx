@@ -6,11 +6,6 @@ import './App.css'
 function App() {
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <h1>Transit Grid</h1>
-        <p>Distributed shipment tracking with live fleet telemetry</p>
-      </header>
-
       <main className="app-main">
         <Routes>
           <Route path="/" element={<DashboardPage />} />

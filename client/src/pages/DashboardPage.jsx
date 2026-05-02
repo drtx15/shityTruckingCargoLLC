@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { assignTruck, createShipment, createTruck, getShipments, getTrucks } from '../api'
+import { assignTruck, createShipment, createTruck, deleteTruck, getShipments, getTrucks, updateTruck } from '../api'
 import ShipmentForm from '../components/ShipmentForm'
 import ShipmentList from '../components/ShipmentList'
+import TruckManager from '../components/TruckManager'
 
 const statusAliases = {
     all: 'all',
@@ -43,8 +44,8 @@ function DashboardPage() {
     const [shipments, setShipments] = useState([])
     const [trucks, setTrucks] = useState([])
     const [error, setError] = useState('')
-    const [lastSyncedAt, setLastSyncedAt] = useState(null)
     const [newTruckLabel, setNewTruckLabel] = useState('')
+    const [truckDrafts, setTruckDrafts] = useState({})
     const [filters, setFilters] = useState({
         query: '',
         status: 'all',
@@ -74,7 +75,15 @@ function DashboardPage() {
 
             setShipments(nextShipments)
             setTrucks(nextTrucks)
-            setLastSyncedAt(new Date())
+            setTruckDrafts((prev) => {
+                const nextDrafts = {}
+
+                nextTrucks.forEach((truck) => {
+                    nextDrafts[truck.id] = prev[truck.id] ?? truck.label
+                })
+
+                return nextDrafts
+            })
             setError('')
         } catch (err) {
             if (err?.name === 'AbortError') {
@@ -134,6 +143,34 @@ function DashboardPage() {
         }
     }
 
+    const handleTruckDraftChange = (truckId, value) => {
+        setTruckDrafts((prev) => ({ ...prev, [truckId]: value }))
+    }
+
+    const handleSaveTruck = async (truckId) => {
+        const label = (truckDrafts[truckId] || '').trim()
+
+        if (!label) {
+            return
+        }
+
+        try {
+            await updateTruck(truckId, label)
+            await load()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    const handleDeleteTruck = async (truckId) => {
+        try {
+            await deleteTruck(truckId)
+            await load()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
     const visibleShipments = useMemo(() => {
         const now = new Date()
         const query = filters.query.trim().toLowerCase()
@@ -161,30 +198,28 @@ function DashboardPage() {
         })
     }, [filters, shipments])
 
-    const summary = useMemo(() => {
-        const now = new Date()
-        return {
-            total: shipments.length,
-            active: shipments.filter((shipment) => shipment.status !== 'ARRIVED').length,
-            delayed: shipments.filter((shipment) => isDelayed(shipment, now)).length,
-            delivered: shipments.filter((shipment) => shipment.status === 'ARRIVED').length
-        }
-    }, [shipments])
-
     return (
         <section className="dashboard-grid">
-            <ShipmentForm onCreate={handleCreate} />
+            <aside className="dashboard-sidebar">
+                <ShipmentForm onCreate={handleCreate} />
+                <TruckManager
+                    trucks={trucks}
+                    draftLabels={truckDrafts}
+                    onDraftChange={handleTruckDraftChange}
+                    onSave={handleSaveTruck}
+                    onDelete={handleDeleteTruck}
+                    onCreate={handleCreateTruck}
+                    newTruckLabel={newTruckLabel}
+                    onNewTruckLabelChange={setNewTruckLabel}
+                />
+            </aside>
             <ShipmentList
+                className="dashboard-main"
                 shipments={visibleShipments}
                 trucks={trucks}
                 onAssign={handleAssign}
-                newTruckLabel={newTruckLabel}
-                onNewTruckLabelChange={setNewTruckLabel}
-                onCreateTruck={handleCreateTruck}
                 filters={filters}
                 onFiltersChange={setFilters}
-                summary={summary}
-                lastSyncedAt={lastSyncedAt}
             />
             {error && <p className="error-text">{error}</p>}
         </section>

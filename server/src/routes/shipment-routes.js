@@ -149,7 +149,35 @@ async function shipmentRoutes(app) {
             return reply.code(404).send({ message: 'Route not available' })
         }
 
-        return simplifyRoutePolyline(shipment.routePolyline)
+        return normalizeRoutePolyline(shipment.routePolyline)
+    })
+
+    app.patch('/shipments/:id', async (request, reply) => {
+        const shipmentId = Number(request.params.id)
+        const payload = request.body || {}
+
+        let routePlan
+
+        try {
+            routePlan = await planShipmentRoute(payload)
+        } catch (error) {
+            return reply.code(400).send({ message: error.message })
+        }
+
+        try {
+            const shipment = await app.prisma.shipment.update({
+                where: { id: shipmentId },
+                data: buildShipmentCreateData(routePlan)
+            })
+
+            return shipment
+        } catch (error) {
+            if (error.code === 'P2025') {
+                return reply.code(404).send({ message: 'Shipment not found' })
+            }
+
+            throw error
+        }
     })
 
     app.patch('/shipments/:id/destination', async (request, reply) => {
@@ -226,6 +254,21 @@ async function shipmentRoutes(app) {
                 return reply.code(404).send({ message: error.message })
             }
             return reply.code(400).send({ message: error.message })
+        }
+    })
+
+    app.delete('/shipments/:id', async (request, reply) => {
+        const shipmentId = Number(request.params.id)
+
+        try {
+            await app.prisma.shipment.delete({ where: { id: shipmentId } })
+            return reply.code(204).send()
+        } catch (error) {
+            if (error.code === 'P2025') {
+                return reply.code(404).send({ message: 'Shipment not found' })
+            }
+
+            throw error
         }
     })
 

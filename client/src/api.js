@@ -55,6 +55,19 @@ export function createTruck(label) {
     })
 }
 
+export function updateTruck(truckId, label) {
+    return request(`/trucks/${truckId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ label })
+    })
+}
+
+export function deleteTruck(truckId) {
+    return request(`/trucks/${truckId}`, {
+        method: 'DELETE'
+    })
+}
+
 export function assignTruck(shipmentId, truckId) {
     return request(`/shipments/${shipmentId}/assign-truck`, {
         method: 'POST',
@@ -66,6 +79,19 @@ export function updateShipmentDestination(shipmentId, payload) {
     return request(`/shipments/${shipmentId}/destination`, {
         method: 'PATCH',
         body: JSON.stringify(payload)
+    })
+}
+
+export function updateShipment(shipmentId, payload) {
+    return request(`/shipments/${shipmentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+    })
+}
+
+export function deleteShipment(shipmentId) {
+    return request(`/shipments/${shipmentId}`, {
+        method: 'DELETE'
     })
 }
 

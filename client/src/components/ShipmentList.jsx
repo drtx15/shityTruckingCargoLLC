@@ -1,4 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+    ArrowRightIcon,
+    IconButton,
+    IconLink,
+    SearchIcon,
+} from './IconControls'
 
 const statusMeta = {
     PENDING: { label: 'Created', className: 'status-created' },
@@ -31,98 +38,72 @@ function formatRelativeTime(value) {
 }
 
 function ShipmentList({
+    className = '',
     shipments,
     trucks,
     onAssign,
-    newTruckLabel,
-    onNewTruckLabelChange,
-    onCreateTruck,
     filters,
     onFiltersChange,
-    summary,
-    lastSyncedAt
 }) {
+    const [searchOpen, setSearchOpen] = useState(false)
+
     const updateFilters = (patch) => {
         onFiltersChange((prev) => ({ ...prev, ...patch }))
     }
 
-    const currentTruckId = filters.truckId || 'all'
-
     return (
-        <div className="panel">
+        <div className={`panel ${className}`.trim()}>
             <div className="dashboard-header">
                 <div>
-                    <p className="eyebrow">Operations board</p>
                     <h2>Shipment dashboard</h2>
-                </div>
-                <div className="sync-meta">
-                    <span>{summary.total} shipments</span>
-                    <span>{summary.active} active</span>
-                    <span>{summary.delayed} delayed</span>
-                    <span>{summary.delivered} delivered</span>
-                    <small>Synced {formatRelativeTime(lastSyncedAt)}</small>
                 </div>
             </div>
 
             <div className="filter-bar">
-                <input
-                    type="search"
-                    value={filters.query}
-                    onChange={(event) => updateFilters({ query: event.target.value })}
-                    placeholder="Search shipment ID, truck, origin, destination"
-                />
-                <select value={filters.status} onChange={(event) => updateFilters({ status: event.target.value })}>
-                    <option value="all">All statuses</option>
-                    <option value="created">Created</option>
-                    <option value="assigned">Assigned</option>
-                    <option value="in_transit">In transit</option>
-                    <option value="delivered">Delivered</option>
-                </select>
-                <select value={currentTruckId} onChange={(event) => updateFilters({ truckId: event.target.value })}>
-                    <option value="all">All trucks</option>
-                    {trucks.map((truck) => (
-                        <option key={truck.id} value={String(truck.id)}>
-                            {truck.label}
-                        </option>
-                    ))}
-                </select>
-                <select value={filters.timeRange} onChange={(event) => updateFilters({ timeRange: event.target.value })}>
-                    <option value="all">All time</option>
-                    <option value="24h">Last 24h</option>
-                    <option value="7d">Last 7d</option>
-                </select>
+                {searchOpen ? (
+                    <div className="search-collapse is-open">
+                        <input
+                            type="search"
+                            value={filters.query}
+                            onChange={(event) => updateFilters({ query: event.target.value })}
+                            placeholder="Search shipment ID, truck, origin, destination"
+                            autoFocus
+                        />
+                        <select
+                            className="status-select"
+                            value={filters.status}
+                            onChange={(event) => updateFilters({ status: event.target.value })}
+                        >
+                            <option value="all">All statuses</option>
+                            <option value="created">Created</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in_transit">In transit</option>
+                            <option value="delivered">Delivered</option>
+                        </select>
+                        <IconButton
+                            type="button"
+                            icon={SearchIcon}
+                            label="Collapse search"
+                            className="icon-button--soft search-toggle-right"
+                            onClick={() => setSearchOpen(false)}
+                        />
+                    </div>
+                ) : (
+                    <IconButton
+                        type="button"
+                        icon={SearchIcon}
+                        label="Open search"
+                        className="icon-button--soft search-toggle-right"
+                        onClick={() => setSearchOpen(true)}
+                    />
+                )}
             </div>
-
-            <form className="filter-bar" onSubmit={onCreateTruck}>
-                <input
-                    type="text"
-                    value={newTruckLabel}
-                    onChange={(event) => onNewTruckLabelChange(event.target.value)}
-                    placeholder="Create truck label (example: TR-201)"
-                    minLength={2}
-                    required
-                />
-                <button type="submit">Create truck</button>
-            </form>
 
             {!trucks.length && (
                 <div className="empty-state compact">
                     <h3>No trucks in database.</h3>
-                    <p>Create at least one truck to enable assignment and live movement.</p>
                 </div>
             )}
-
-            <div className="quick-filter-row">
-                <button type="button" className={filters.quick === 'all' ? 'pill active' : 'pill'} onClick={() => updateFilters({ quick: 'all' })}>
-                    All
-                </button>
-                <button type="button" className={filters.quick === 'active' ? 'pill active' : 'pill'} onClick={() => updateFilters({ quick: 'active' })}>
-                    Active
-                </button>
-                <button type="button" className={filters.quick === 'delayed' ? 'pill active' : 'pill'} onClick={() => updateFilters({ quick: 'delayed' })}>
-                    Delayed
-                </button>
-            </div>
 
             {!shipments.length ? (
                 <div className="empty-state">
@@ -166,21 +147,14 @@ function ShipmentList({
 
                                 <div className="shipment-cell">
                                     <strong>{assignedTruck ? assignedTruck.label : 'Unassigned'}</strong>
-                                    <small>
-                                        {assignedTruck
-                                            ? `${assignedTruck.status}${assignedTruck.lastUpdatedAt ? ` • ${formatRelativeTime(assignedTruck.lastUpdatedAt)}` : ' • Awaiting GPS fix'}`
-                                            : 'Ready for dispatch'}
-                                    </small>
                                 </div>
 
                                 <div className="shipment-cell">
                                     <strong>{etaText}</strong>
-                                    <small>{shipment.estimatedAt ? new Date(shipment.estimatedAt).toLocaleTimeString() : 'Awaiting route'}</small>
                                 </div>
 
                                 <div className="shipment-cell">
                                     <strong>{formatRelativeTime(lastUpdate)}</strong>
-                                    <small>{new Date(lastUpdate).toLocaleString()}</small>
                                 </div>
 
                                 <div className="shipment-actions">
@@ -202,7 +176,7 @@ function ShipmentList({
                                             </option>
                                         ))}
                                     </select>
-                                    <Link to={`/shipments/${shipment.id}`}>Open</Link>
+                                    <IconLink to={`/shipments/${shipment.id}`} icon={ArrowRightIcon} label={`Open shipment ${shipment.id}`} />
                                 </div>
                             </article>
                         )

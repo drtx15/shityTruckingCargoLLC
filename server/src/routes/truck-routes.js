@@ -36,6 +36,57 @@ async function truckRoutes(app) {
         }
     })
 
+    app.patch('/:id', async (request, reply) => {
+        const truckId = Number(request.params.id)
+        const label = typeof request.body?.label === 'string' ? request.body.label.trim() : ''
+
+        if (!label) {
+            return reply.code(400).send({ message: 'Truck label is required' })
+        }
+
+        try {
+            const truck = await app.prisma.truck.update({
+                where: { id: truckId },
+                data: { label }
+            })
+
+            return truck
+        } catch (error) {
+            if (error.code === 'P2002') {
+                return reply.code(409).send({ message: 'Truck label must be unique' })
+            }
+
+            if (error.code === 'P2025') {
+                return reply.code(404).send({ message: 'Truck not found' })
+            }
+
+            throw error
+        }
+    })
+
+    app.delete('/:id', async (request, reply) => {
+        const truckId = Number(request.params.id)
+
+        try {
+            const assignedShipmentCount = await app.prisma.shipment.count({
+                where: { assignedTruckId: truckId }
+            })
+
+            if (assignedShipmentCount > 0) {
+                return reply.code(400).send({ message: 'Truck is assigned to shipments' })
+            }
+
+            await app.prisma.truck.delete({ where: { id: truckId } })
+            return reply.code(204).send()
+        } catch (error) {
+            if (error.code === 'P2025') {
+                return reply.code(404).send({ message: 'Truck not found' })
+            }
+
+            throw error
+        }
+    })
+
 }
 
 module.exports = truckRoutes
