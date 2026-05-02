@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Truck {
+  id            Int          @id @default(autoincrement())
+  label         String       @unique
+  status        TruckStatus  @default(IDLE)
+  currentLat    Float?
+  currentLng    Float?
+  currentSpeed  Float?
+  lastUpdatedAt DateTime?
+  shipments     Shipment[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Shipment {
+  id             Int            @id @default(autoincrement())
+  originLat      Float
+  originLng      Float
+  originLabel    String?
+  destinationLat Float
+  destinationLng Float
+  destinationLabel String?
+  routePolyline  Json?
+  status         ShipmentStatus @default(PENDING)
+  isPaused       Boolean        @default(false)
+  etaMinutes     Int?
+  estimatedAt    DateTime?
+  assignedTruckId Int?
+  assignedTruck  Truck?         @relation(fields: [assignedTruckId], references: [id], onDelete: SetNull)
+  checkpoints    Checkpoint[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Checkpoint {
+  id         Int            @id @default(autoincrement())
+  shipmentId Int
+  shipment   Shipment       @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type       CheckpointType
+  timestamp  DateTime       @default(now())
+  lat        Float
+  lng        Float
+
+  @@index([shipmentId, timestamp])
+}
+
+enum TruckStatus {
+  IDLE
+  ASSIGNED
+  MOVING
+}
+
+enum ShipmentStatus {
+  PENDING
+  ASSIGNED
+  IN_TRANSIT
+  ARRIVED
+}
+
+enum CheckpointType {
+  DEPARTED
+  IN_TRANSIT
+  ARRIVED
+}

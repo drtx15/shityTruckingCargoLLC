@@ -1,0 +1,4 @@
+ALTER TABLE "Shipment"
+ADD COLUMN IF NOT EXISTS "originLabel" TEXT,
+    ADD COLUMN IF NOT EXISTS "destinationLabel" TEXT,
+    ADD COLUMN IF NOT EXISTS "isPaused" BOOLEAN NOT NULL DEFAULT false;
