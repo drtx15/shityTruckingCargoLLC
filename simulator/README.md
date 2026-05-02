@@ -24,7 +24,7 @@ This service simulates truck movement and emits periodic GPS events to the core 
 2. Install packages:
    - `pip install -r requirements.txt`
 3. Set backend URL (optional):
-   - `set BACKEND_URL=http://localhost:3000`
+   - PowerShell: `$env:BACKEND_URL = "http://localhost:3000"`
 4. Start:
    - `uvicorn main:app --reload --port 8001`
 

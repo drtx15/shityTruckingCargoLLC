@@ -83,28 +83,49 @@ Flow:
 
 ## Run Instructions
 
-1. Database (Docker PostgreSQL)
-   - `cd ..` (if you are inside client/server/simulator)
-   - `docker compose up -d`
-   - wait until container `transit-grid-postgres` is healthy
-   - host connection: `localhost:5433`
+### Windows / PowerShell quick start
 
-2. Backend
-   - `cd server`
-   - `npm install`
-   - `npx prisma generate`
-   - `npx prisma migrate dev --name init`
-   - `npm run dev`
+Run these from the workspace root: `D:\TL\IPproject\shityTruckingCargoLLC`.
 
-3. Simulator
-   - `cd simulator`
-   - `pip install -r requirements.txt`
-   - `uvicorn main:app --reload --port 8001`
+1. Start PostgreSQL:
 
-4. Frontend
-   - `cd client`
-   - `npm install`
-   - `npm run dev`
+```powershell
+docker compose up -d
+```
+
+2. Backend setup and start:
+
+```powershell
+Set-Location server
+npm install
+npm run prisma:generate
+npm run prisma:migrate -- --name init
+npm run dev
+```
+
+3. Simulator setup and start:
+
+```powershell
+Set-Location ..\simulator
+pip install -r requirements.txt
+$env:BACKEND_URL = "http://localhost:3000"
+uvicorn main:app --reload --port 8001
+```
+
+4. Frontend setup and start:
+
+```powershell
+Set-Location ..\client
+npm install
+npm run dev
+```
+
+### Notes
+
+- PostgreSQL runs in the `transit-grid-postgres` container and exposes `localhost:5433` on the host.
+- If you open a new terminal, repeat the `Set-Location` step before running commands in that component.
+- If Prisma reports missing Shipment fields such as `originLabel`, `destinationLabel`, or `isPaused`, run `cd server` then `npm run prisma:generate` to refresh the generated client.
+- To stop the database container, run `docker compose down` from the workspace root.
 
 ## Behavior Ownership
 

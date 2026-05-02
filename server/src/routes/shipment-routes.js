@@ -12,6 +12,50 @@ function normalizeLocationText(value) {
     return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizeRoutePolyline(routePolyline) {
+    if (!Array.isArray(routePolyline)) {
+        return []
+    }
+
+    return routePolyline
+        .map((point) => {
+            const lat = Number(point?.lat)
+            const lng = Number(point?.lng)
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return null
+            }
+
+            return { lat, lng }
+        })
+        .filter(Boolean)
+}
+
+function buildShipmentCreateData(routePlan) {
+    const originLat = Number(routePlan.originLat)
+    const originLng = Number(routePlan.originLng)
+    const destinationLat = Number(routePlan.destinationLat)
+    const destinationLng = Number(routePlan.destinationLng)
+
+    if (!Number.isFinite(originLat) || !Number.isFinite(originLng)) {
+        throw new Error('Route plan is missing valid origin coordinates')
+    }
+
+    if (!Number.isFinite(destinationLat) || !Number.isFinite(destinationLng)) {
+        throw new Error('Route plan is missing valid destination coordinates')
+    }
+
+    return {
+        originLat,
+        originLng,
+        originLabel: normalizeLocationText(routePlan.originLabel) || null,
+        destinationLat,
+        destinationLng,
+        destinationLabel: normalizeLocationText(routePlan.destinationLabel) || null,
+        routePolyline: normalizeRoutePolyline(routePlan.routePolyline)
+    }
+}
+
 async function shipmentRoutes(app) {
     app.get('/locations/search', async (request, reply) => {
         const query = normalizeLocationText(request.query?.q)
@@ -37,15 +81,7 @@ async function shipmentRoutes(app) {
         }
 
         const shipment = await app.prisma.shipment.create({
-            data: {
-                originLat: routePlan.originLat,
-                originLng: routePlan.originLng,
-                originLabel: routePlan.originLabel,
-                destinationLat: routePlan.destinationLat,
-                destinationLng: routePlan.destinationLng,
-                destinationLabel: routePlan.destinationLabel,
-                routePolyline: routePlan.routePolyline
-            }
+            data: buildShipmentCreateData(routePlan)
         })
 
         return reply.code(201).send(shipment)
