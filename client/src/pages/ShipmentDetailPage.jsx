@@ -49,30 +49,12 @@ function formatCountdown(etaMinutes) {
 function buildActivityFeed(tracking) {
     const feed = []
 
-    if (tracking?.route) {
+    if (tracking?.createdAt) {
         feed.push({
             id: 'created',
             title: 'Shipment created',
             detail: `${tracking.originLabel || 'Origin'} → ${tracking.destinationLabel || 'Destination'}`,
-            timestamp: tracking.createdAt || tracking.estimatedAt || new Date().toISOString()
-        })
-    }
-
-    if (tracking?.truck) {
-        feed.push({
-            id: 'assigned',
-            title: 'Truck assigned',
-            detail: tracking.truck.label,
-            timestamp: tracking.truck.updatedAt || tracking.estimatedAt || new Date().toISOString()
-        })
-    }
-
-    if (tracking?.checkpoints?.some((checkpoint) => checkpoint.type === 'DEPARTED')) {
-        feed.push({
-            id: 'departed',
-            title: 'Departed',
-            detail: 'Truck left the origin point',
-            timestamp: tracking.checkpoints.find((checkpoint) => checkpoint.type === 'DEPARTED')?.timestamp
+            timestamp: tracking.createdAt
         })
     }
 
@@ -85,12 +67,12 @@ function buildActivityFeed(tracking) {
         })
     })
 
-    if (tracking?.status === 'ARRIVED') {
+    if (tracking?.status === 'ARRIVED' && tracking?.estimatedAt) {
         feed.push({
             id: 'arrived',
             title: 'Delivered',
             detail: 'Shipment reached destination',
-            timestamp: tracking.estimatedAt || new Date().toISOString()
+            timestamp: tracking.estimatedAt
         })
     }
 

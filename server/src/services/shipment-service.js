@@ -5,6 +5,30 @@ const { sendStatusWebhook } = require('./webhook-service')
 const ARRIVAL_THRESHOLD_KM = 0.2
 const IN_TRANSIT_CHECKPOINT_INTERVAL_MS = 45 * 1000
 
+function mapTruckStatus(state, speed) {
+    if (state === 'MOVING' || speed > 0) {
+        return TruckStatus.MOVING
+    }
+
+    if (state === 'IDLE') {
+        return TruckStatus.IDLE
+    }
+
+    return TruckStatus.ASSIGNED
+}
+
+function shouldMoveShipmentToTransit(currentStatus, eventType, state, speed) {
+    if (currentStatus !== ShipmentStatus.ASSIGNED) {
+        return false
+    }
+
+    if (eventType === 'RESUMED' || eventType === 'LOCATION_UPDATE') {
+        return state === 'MOVING' || speed > 0
+    }
+
+    return state === 'MOVING' || speed > 0
+}
+
 async function emitShipmentStatus(app, shipment, previousStatus) {
     if (shipment.status === previousStatus) {
         return
@@ -193,8 +217,20 @@ async function setShipmentPaused(app, shipmentId, paused) {
 }
 
 async function processLocationUpdate(app, payload) {
-    const { truckId, lat, lng, speed, timestamp } = payload
+    const {
+        truckId,
+        lat,
+        lng,
+        speed,
+        timestamp,
+        eventType = null,
+        state = null,
+        reason = null,
+        heading = null,
+        accuracy = null
+    } = payload
     const eventTime = new Date(timestamp * 1000)
+    const truckStatus = mapTruckStatus(state, speed)
 
     const truck = await app.prisma.truck.update({
         where: { id: truckId },
@@ -203,7 +239,7 @@ async function processLocationUpdate(app, payload) {
             currentLng: lng,
             currentSpeed: speed,
             lastUpdatedAt: eventTime,
-            status: speed > 0 ? TruckStatus.MOVING : TruckStatus.ASSIGNED
+            status: truckStatus
         }
     })
 
@@ -234,7 +270,7 @@ async function processLocationUpdate(app, payload) {
     let nextStatus = shipment.status
     const previousStatus = shipment.status
 
-    if (shipment.status === ShipmentStatus.ASSIGNED) {
+    if (shouldMoveShipmentToTransit(shipment.status, eventType, state, speed)) {
         nextStatus = ShipmentStatus.IN_TRANSIT
         await app.prisma.checkpoint.create({
             data: {
@@ -297,7 +333,14 @@ async function processLocationUpdate(app, payload) {
         shipmentUpdated: true,
         shipmentId: updatedShipment.id,
         status: updatedShipment.status,
-        etaMinutes: updatedShipment.etaMinutes
+        etaMinutes: updatedShipment.etaMinutes,
+        telemetry: {
+            eventType,
+            state,
+            reason,
+            heading,
+            accuracy
+        }
     }
 }
 

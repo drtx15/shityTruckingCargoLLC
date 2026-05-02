@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { assignTruck, createShipment, getShipments, getTrucks, seedTrucks } from '../api'
+import { assignTruck, createShipment, createTruck, getShipments, getTrucks } from '../api'
 import ShipmentForm from '../components/ShipmentForm'
 import ShipmentList from '../components/ShipmentList'
 
@@ -44,6 +44,7 @@ function DashboardPage() {
     const [trucks, setTrucks] = useState([])
     const [error, setError] = useState('')
     const [lastSyncedAt, setLastSyncedAt] = useState(null)
+    const [newTruckLabel, setNewTruckLabel] = useState('')
     const [filters, setFilters] = useState({
         query: '',
         status: 'all',
@@ -54,11 +55,6 @@ function DashboardPage() {
 
     const load = async () => {
         try {
-            const truckData = await getTrucks()
-            if (truckData.length === 0) {
-                await seedTrucks()
-            }
-
             const [nextShipments, nextTrucks] = await Promise.all([getShipments(), getTrucks()])
             setShipments(nextShipments)
             setTrucks(nextTrucks)
@@ -87,6 +83,22 @@ function DashboardPage() {
     const handleAssign = async (shipmentId, truckId) => {
         try {
             await assignTruck(shipmentId, truckId)
+            await load()
+        } catch (err) {
+            setError(err.message)
+        }
+    }
+
+    const handleCreateTruck = async (event) => {
+        event.preventDefault()
+        const label = newTruckLabel.trim()
+        if (!label) {
+            return
+        }
+
+        try {
+            await createTruck(label)
+            setNewTruckLabel('')
             await load()
         } catch (err) {
             setError(err.message)
@@ -137,6 +149,9 @@ function DashboardPage() {
                 shipments={visibleShipments}
                 trucks={trucks}
                 onAssign={handleAssign}
+                newTruckLabel={newTruckLabel}
+                onNewTruckLabelChange={setNewTruckLabel}
+                onCreateTruck={handleCreateTruck}
                 filters={filters}
                 onFiltersChange={setFilters}
                 summary={summary}

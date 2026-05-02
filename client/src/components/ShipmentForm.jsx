@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { searchLocations } from '../api'
 import TrackingMap from '../map/TrackingMap'
 
 const initialForm = {
-    origin: 'Tashkent',
-    destination: 'Fergana'
+    origin: '',
+    destination: ''
 }
 
 function ShipmentForm({ onCreate }) {
@@ -16,15 +16,6 @@ function ShipmentForm({ onCreate }) {
     const [lookupError, setLookupError] = useState('')
     const originTimerRef = useRef(null)
     const destinationTimerRef = useRef(null)
-    const savedLocations = useMemo(
-        () => [
-            { label: 'Tashkent Logistics Hub', value: 'Tashkent' },
-            { label: 'Fergana Distribution Yard', value: 'Fergana' },
-            { label: 'Samarkand Freight Terminal', value: 'Samarkand' }
-        ],
-        []
-    )
-
     useEffect(() => {
         return () => {
             if (originTimerRef.current) {
@@ -133,25 +124,6 @@ function ShipmentForm({ onCreate }) {
                 <button type="button" className="secondary-button" onClick={swapLocations}>
                     Swap route
                 </button>
-            </div>
-            <div className="saved-locations">
-                {savedLocations.map((location) => (
-                    <button
-                        key={location.label}
-                        type="button"
-                        className="saved-location"
-                        onClick={() => {
-                            setForm((prev) => ({
-                                ...prev,
-                                origin: location.value,
-                                destination: prev.destination
-                            }))
-                            queueLookup('origin', location.value)
-                        }}
-                    >
-                        {location.label}
-                    </button>
-                ))}
             </div>
             <div className="form-grid">
                 <div className="suggestion-field">

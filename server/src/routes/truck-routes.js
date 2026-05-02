@@ -25,19 +25,6 @@ async function truckRoutes(app) {
         }
     })
 
-    app.post('/seed', async () => {
-        const existingCount = await app.prisma.truck.count()
-        if (existingCount > 0) {
-            return { created: 0, message: 'Trucks already exist' }
-        }
-
-        const labels = ['T-101', 'T-102', 'T-103', 'T-104', 'T-105']
-        await app.prisma.truck.createMany({
-            data: labels.map((label) => ({ label }))
-        })
-
-        return { created: labels.length }
-    })
 }
 
 module.exports = truckRoutes

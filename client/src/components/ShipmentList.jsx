@@ -30,7 +30,18 @@ function formatRelativeTime(value) {
     return `${Math.round(hours / 24)}d ago`
 }
 
-function ShipmentList({ shipments, trucks, onAssign, filters, onFiltersChange, summary, lastSyncedAt }) {
+function ShipmentList({
+    shipments,
+    trucks,
+    onAssign,
+    newTruckLabel,
+    onNewTruckLabelChange,
+    onCreateTruck,
+    filters,
+    onFiltersChange,
+    summary,
+    lastSyncedAt
+}) {
     const updateFilters = (patch) => {
         onFiltersChange((prev) => ({ ...prev, ...patch }))
     }
@@ -81,6 +92,25 @@ function ShipmentList({ shipments, trucks, onAssign, filters, onFiltersChange, s
                     <option value="7d">Last 7d</option>
                 </select>
             </div>
+
+            <form className="filter-bar" onSubmit={onCreateTruck}>
+                <input
+                    type="text"
+                    value={newTruckLabel}
+                    onChange={(event) => onNewTruckLabelChange(event.target.value)}
+                    placeholder="Create truck label (example: TR-201)"
+                    minLength={2}
+                    required
+                />
+                <button type="submit">Create truck</button>
+            </form>
+
+            {!trucks.length && (
+                <div className="empty-state compact">
+                    <h3>No trucks in database.</h3>
+                    <p>Create at least one truck to enable assignment and live movement.</p>
+                </div>
+            )}
 
             <div className="quick-filter-row">
                 <button type="button" className={filters.quick === 'all' ? 'pill active' : 'pill'} onClick={() => updateFilters({ quick: 'all' })}>
@@ -159,7 +189,7 @@ function ShipmentList({ shipments, trucks, onAssign, filters, onFiltersChange, s
                                                 event.target.value = ''
                                             }
                                         }}
-                                        disabled={shipment.status === 'ARRIVED'}
+                                        disabled={shipment.status === 'ARRIVED' || !trucks.length}
                                     >
                                         <option value="">Assign truck</option>
                                         {trucks.map((truck) => (

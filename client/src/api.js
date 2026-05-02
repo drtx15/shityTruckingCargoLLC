@@ -48,8 +48,11 @@ export function getTrucks() {
     return request('/trucks')
 }
 
-export function seedTrucks() {
-    return request('/trucks/seed', { method: 'POST' })
+export function createTruck(label) {
+    return request('/trucks', {
+        method: 'POST',
+        body: JSON.stringify({ label })
+    })
 }
 
 export function assignTruck(shipmentId, truckId) {
