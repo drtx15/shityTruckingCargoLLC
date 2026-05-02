@@ -1,5 +1,7 @@
+const config = require('../config')
+
 async function startSimulation(app, shipment, truck) {
-    const simulatorUrl = process.env.SIMULATOR_URL
+    const simulatorUrl = config.simulatorUrl
 
     if (!simulatorUrl) {
         return { started: false, reason: 'SIMULATOR_URL is not set' }

@@ -1,6 +1,5 @@
 const { searchLocations } = require('./geocoding-service')
-
-const DEFAULT_OSRM_URL = 'http://router.project-osrm.org'
+const config = require('../config')
 
 function normalizeCoordinate(value) {
     if (value === undefined || value === null || value === '') {
@@ -50,8 +49,7 @@ async function resolveEndpoint(payload, prefix) {
 }
 
 async function buildRoutePolyline(origin, destination) {
-    const osrmUrl = process.env.OSRM_BASE_URL || DEFAULT_OSRM_URL
-    const url = new URL(`/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`, osrmUrl)
+    const url = new URL(`/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`, config.osrmBaseUrl)
     url.searchParams.set('overview', 'full')
     url.searchParams.set('geometries', 'geojson')
 

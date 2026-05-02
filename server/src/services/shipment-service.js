@@ -4,6 +4,7 @@ const { sendStatusWebhook } = require('./webhook-service')
 
 const ARRIVAL_THRESHOLD_KM = 0.2
 const IN_TRANSIT_CHECKPOINT_INTERVAL_MS = 45 * 1000
+const config = require('../config')
 
 function mapTruckStatus(state, speed) {
     if (state === 'MOVING' || speed > 0) {
@@ -12,6 +13,10 @@ function mapTruckStatus(state, speed) {
 
     if (state === 'IDLE') {
         return TruckStatus.IDLE
+    }
+
+    if (state === 'STOPPED' || state === 'DELAYED') {
+        return TruckStatus.REST
     }
 
     return TruckStatus.ASSIGNED
@@ -348,16 +353,32 @@ async function getTrackingByShipmentId(prisma, shipmentId) {
     const shipment = await prisma.shipment.findUnique({
         where: { id: shipmentId },
         include: {
-            assignedTruck: true,
-            checkpoints: {
-                orderBy: {
-                    timestamp: 'asc'
+            assignedTruck: {
+                select: {
+                    id: true,
+                    label: true,
+                    status: true,
+                    currentLat: true,
+                    currentLng: true,
+                    currentSpeed: true,
+                    lastUpdatedAt: true
                 }
+            },
+            checkpoints: {
+                orderBy: { timestamp: 'desc' },
+                take: config.trackingCheckpointLimit
             }
         }
     })
 
-    return shipment
+    if (!shipment) {
+        return shipment
+    }
+
+    return {
+        ...shipment,
+        checkpoints: shipment.checkpoints.slice().reverse()
+    }
 }
 
 module.exports = {

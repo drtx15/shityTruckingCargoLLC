@@ -89,15 +89,38 @@ function ShipmentDetailPage() {
     const [error, setError] = useState('')
     const [actionError, setActionError] = useState('')
     const destinationTimerRef = useRef(null)
+    const loadAbortRef = useRef(null)
 
     const load = async () => {
+        if (loadAbortRef.current) {
+            loadAbortRef.current.abort()
+        }
+
+        const controller = new AbortController()
+        loadAbortRef.current = controller
+
         try {
-            const [trackingData, truckData] = await Promise.all([getTracking(id), getTrucks()])
+            const [trackingData, truckData] = await Promise.all([
+                getTracking(id, { signal: controller.signal }),
+                getTrucks({ signal: controller.signal })
+            ])
+
+            if (controller.signal.aborted) {
+                return
+            }
+
             setTracking(trackingData)
             setTrucks(truckData)
             setError('')
         } catch (err) {
+            if (err?.name === 'AbortError') {
+                return
+            }
             setError(err.message)
+        } finally {
+            if (loadAbortRef.current === controller) {
+                loadAbortRef.current = null
+            }
         }
     }
 
@@ -203,7 +226,13 @@ function ShipmentDetailPage() {
     useEffect(() => {
         load()
         const timer = setInterval(load, 2500)
-        return () => clearInterval(timer)
+        return () => {
+            clearInterval(timer)
+
+            if (loadAbortRef.current) {
+                loadAbortRef.current.abort()
+            }
+        }
     }, [id])
 
     const activityFeed = useMemo(() => buildActivityFeed(tracking), [tracking])

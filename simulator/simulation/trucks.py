@@ -28,6 +28,8 @@ class SimulatedTruck:
     pause_until_ts: float = 0.0
     delayed_until_ts: float = 0.0
     comms_silence_until_ts: float = 0.0
+    next_location_emit_ts: float = 0.0
+    location_emit_interval_s: float = 1.0
     delay_reason: str | None = None
     reroute_count: int = 0
     breakdown_count: int = 0

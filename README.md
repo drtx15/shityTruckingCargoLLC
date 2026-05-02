@@ -62,6 +62,12 @@ Flow:
 
 ## Environment Variables
 
+Each runtime now has its own env template:
+
+- `server/.env.example`
+- `client/.env.example`
+- `simulator/.env.example`
+
 ### server/.env
 
 - DATABASE_URL: PostgreSQL connection string

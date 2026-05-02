@@ -23,8 +23,7 @@ This service simulates truck movement and emits periodic GPS events to the core 
 1. Create/activate Python environment.
 2. Install packages:
    - `pip install -r requirements.txt`
-3. Set backend URL (optional):
-   - PowerShell: `$env:BACKEND_URL = "http://localhost:3000"`
+3. Create or edit `simulator/.env` from `simulator/.env.example`.
 4. Start:
    - `uvicorn main:app --reload --port 8001`
 

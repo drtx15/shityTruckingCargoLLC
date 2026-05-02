@@ -1,4 +1,5 @@
 const fastify = require('fastify')
+const config = require('./config')
 
 const prismaPlugin = require('./plugins/prisma')
 const authPlugin = require('./plugins/auth')
@@ -11,7 +12,7 @@ function buildApp() {
     const app = fastify({ logger: true })
 
     app.register(require('@fastify/cors'), {
-        origin: process.env.CORS_ORIGIN || 'http://localhost:5173'
+        origin: config.corsOrigin
     })
 
     app.register(prismaPlugin)

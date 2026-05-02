@@ -1,8 +1,9 @@
 const fp = require('fastify-plugin')
+const config = require('../config')
 
 async function authPlugin(app) {
     app.register(require('@fastify/jwt'), {
-        secret: process.env.JWT_SECRET || 'supersecret'
+        secret: config.jwtSecret
     })
 
     app.decorate('authenticate', async function authenticate(request, reply) {

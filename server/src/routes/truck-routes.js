@@ -1,6 +1,17 @@
 async function truckRoutes(app) {
     app.get('/', async () => {
         return app.prisma.truck.findMany({
+            select: {
+                id: true,
+                label: true,
+                status: true,
+                currentLat: true,
+                currentLng: true,
+                currentSpeed: true,
+                lastUpdatedAt: true,
+                createdAt: true,
+                updatedAt: true
+            },
             orderBy: { id: 'asc' }
         })
     })

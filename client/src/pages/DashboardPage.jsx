@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { assignTruck, createShipment, createTruck, getShipments, getTrucks } from '../api'
 import ShipmentForm from '../components/ShipmentForm'
 import ShipmentList from '../components/ShipmentList'
@@ -52,23 +52,52 @@ function DashboardPage() {
         timeRange: 'all',
         quick: 'all'
     })
+    const loadAbortRef = useRef(null)
 
     const load = async () => {
+        if (loadAbortRef.current) {
+            loadAbortRef.current.abort()
+        }
+
+        const controller = new AbortController()
+        loadAbortRef.current = controller
+
         try {
-            const [nextShipments, nextTrucks] = await Promise.all([getShipments(), getTrucks()])
+            const [nextShipments, nextTrucks] = await Promise.all([
+                getShipments({ signal: controller.signal }),
+                getTrucks({ signal: controller.signal })
+            ])
+
+            if (controller.signal.aborted) {
+                return
+            }
+
             setShipments(nextShipments)
             setTrucks(nextTrucks)
             setLastSyncedAt(new Date())
             setError('')
         } catch (err) {
+            if (err?.name === 'AbortError') {
+                return
+            }
             setError(err.message)
+        } finally {
+            if (loadAbortRef.current === controller) {
+                loadAbortRef.current = null
+            }
         }
     }
 
     useEffect(() => {
         load()
         const timer = setInterval(load, 4000)
-        return () => clearInterval(timer)
+        return () => {
+            clearInterval(timer)
+
+            if (loadAbortRef.current) {
+                loadAbortRef.current.abort()
+            }
+        }
     }, [])
 
     const handleCreate = async (data) => {

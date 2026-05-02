@@ -1,5 +1,7 @@
+const config = require('../config')
+
 async function sendStatusWebhook(app, payload) {
-    const webhookUrl = process.env.WEBHOOK_URL
+    const webhookUrl = config.webhookUrl
 
     if (!webhookUrl) {
         return

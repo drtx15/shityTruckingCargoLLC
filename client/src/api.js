@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+import { API_BASE_URL } from './config'
 
 async function request(path, options = {}) {
     const headers = new Headers(options.headers || {})
@@ -8,7 +8,7 @@ async function request(path, options = {}) {
         headers.set('content-type', 'application/json')
     }
 
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
         ...options,
         headers
     })
@@ -21,12 +21,12 @@ async function request(path, options = {}) {
     return response.json()
 }
 
-export function getShipments() {
-    return request('/shipments')
+export function getShipments(options = {}) {
+    return request('/shipments', options)
 }
 
-export function getShipment(id) {
-    return request(`/shipments/${id}`)
+export function getShipment(id, options = {}) {
+    return request(`/shipments/${id}`, options)
 }
 
 export function createShipment(data) {
@@ -44,8 +44,8 @@ export function searchLocations(query, limit = 5) {
     return request(`/locations/search?${params.toString()}`)
 }
 
-export function getTrucks() {
-    return request('/trucks')
+export function getTrucks(options = {}) {
+    return request('/trucks', options)
 }
 
 export function createTruck(label) {
@@ -81,6 +81,6 @@ export function resumeShipment(shipmentId) {
     })
 }
 
-export function getTracking(shipmentId) {
-    return request(`/tracking/${shipmentId}`)
+export function getTracking(shipmentId, options = {}) {
+    return request(`/tracking/${shipmentId}`, options)
 }

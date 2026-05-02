@@ -1,6 +1,20 @@
 import math
 
 
+def simplify_route_polyline(route_polyline, max_points=250):
+    if not route_polyline or len(route_polyline) <= max_points:
+        return route_polyline or []
+
+    stride = max(1, math.ceil(len(route_polyline) / max_points))
+    simplified = route_polyline[::stride]
+    last_point = route_polyline[-1]
+
+    if simplified[-1] is not last_point:
+        simplified.append(last_point)
+
+    return simplified
+
+
 def haversine_km(lat1, lng1, lat2, lng2):
     radius_km = 6371.0
     d_lat = math.radians(lat2 - lat1)

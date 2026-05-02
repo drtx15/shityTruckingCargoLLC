@@ -1,5 +1,5 @@
-const DEFAULT_BASE_URL = 'https://nominatim.openstreetmap.org'
-const DEFAULT_USER_AGENT = 'shityTruckingCargoLLC/1.0 (local-dev)'
+const config = require('../config')
+
 const CACHE_TTL_MS = 10 * 60 * 1000
 
 const searchCache = new Map()
@@ -114,7 +114,7 @@ async function searchLocations(query, limit = 5) {
         return cachedResults
     }
 
-    const url = new URL('/search', process.env.NOMINATIM_BASE_URL || DEFAULT_BASE_URL)
+    const url = new URL('/search', config.nominatimBaseUrl)
     url.searchParams.set('q', normalizedQuery)
     url.searchParams.set('format', 'jsonv2')
     url.searchParams.set('addressdetails', '1')
@@ -122,7 +122,7 @@ async function searchLocations(query, limit = 5) {
 
     const headers = {
         'accept': 'application/json',
-        'user-agent': process.env.NOMINATIM_USER_AGENT || DEFAULT_USER_AGENT
+        'user-agent': config.nominatimUserAgent
     }
 
     const response = await fetch(url, { headers })

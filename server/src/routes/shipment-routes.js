@@ -7,6 +7,7 @@ const {
 const { startSimulation } = require('../services/simulator-service')
 const { searchLocations } = require('../services/geocoding-service')
 const { planShipmentRoute } = require('../services/route-planner')
+const config = require('../config')
 
 function normalizeLocationText(value) {
     return typeof value === 'string' ? value.trim() : ''
@@ -29,6 +30,22 @@ function normalizeRoutePolyline(routePolyline) {
             return { lat, lng }
         })
         .filter(Boolean)
+}
+
+function simplifyRoutePolyline(routePolyline, maxPoints = config.trackingRouteMaxPoints) {
+    if (!Array.isArray(routePolyline) || routePolyline.length <= maxPoints) {
+        return routePolyline || []
+    }
+
+    const stride = Math.ceil(routePolyline.length / maxPoints)
+    const simplified = routePolyline.filter((_, index) => index % stride === 0)
+    const lastPoint = routePolyline[routePolyline.length - 1]
+
+    if (simplified[simplified.length - 1] !== lastPoint) {
+        simplified.push(lastPoint)
+    }
+
+    return simplified
 }
 
 function buildShipmentCreateData(routePlan) {
@@ -90,7 +107,17 @@ async function shipmentRoutes(app) {
     app.get('/shipments', async () => {
         return app.prisma.shipment.findMany({
             include: {
-                assignedTruck: true
+                assignedTruck: {
+                    select: {
+                        id: true,
+                        label: true,
+                        status: true,
+                        currentLat: true,
+                        currentLng: true,
+                        currentSpeed: true,
+                        lastUpdatedAt: true
+                    }
+                }
             },
             orderBy: {
                 createdAt: 'desc'
@@ -105,7 +132,8 @@ async function shipmentRoutes(app) {
             include: {
                 assignedTruck: true,
                 checkpoints: {
-                    orderBy: { timestamp: 'asc' }
+                    orderBy: { timestamp: 'desc' },
+                    take: 100
                 }
             }
         })
@@ -114,7 +142,10 @@ async function shipmentRoutes(app) {
             return reply.code(404).send({ message: 'Shipment not found' })
         }
 
-        return shipment
+        return {
+            ...shipment,
+            checkpoints: shipment.checkpoints.slice().reverse()
+        }
     })
 
     app.get('/shipments/:id/route', async (request, reply) => {
@@ -135,7 +166,7 @@ async function shipmentRoutes(app) {
             return reply.code(404).send({ message: 'Route not available' })
         }
 
-        return shipment.routePolyline
+        return simplifyRoutePolyline(shipment.routePolyline)
     })
 
     app.patch('/shipments/:id/destination', async (request, reply) => {
@@ -236,7 +267,7 @@ async function shipmentRoutes(app) {
             route: {
                 origin: { lat: shipment.originLat, lng: shipment.originLng },
                 destination: { lat: shipment.destinationLat, lng: shipment.destinationLng },
-                routePolyline: shipment.routePolyline || []
+                routePolyline: simplifyRoutePolyline(shipment.routePolyline || [])
             },
             truck: shipment.assignedTruck,
             checkpoints: shipment.checkpoints

@@ -68,6 +68,7 @@ enum TruckStatus {
   IDLE
   ASSIGNED
   MOVING
+  REST
 }
 
 enum ShipmentStatus {
