@@ -11,6 +11,8 @@ const statusMeta = {
     PENDING: { label: 'Created', className: 'status-created' },
     ASSIGNED: { label: 'Assigned', className: 'status-assigned' },
     IN_TRANSIT: { label: 'In Transit', className: 'status-in-transit' },
+    DELAYED: { label: 'Delayed', className: 'status-delayed' },
+    CANCELLED: { label: 'Cancelled', className: 'status-paused' },
     ARRIVED: { label: 'Delivered', className: 'status-delivered' }
 }
 
@@ -39,6 +41,8 @@ function formatRelativeTime(value) {
 
 function ShipmentList({
     className = '',
+    detailBasePath = '/shipments',
+    title = 'Shipment dashboard',
     shipments,
     filters,
     onFiltersChange,
@@ -53,7 +57,7 @@ function ShipmentList({
         <div className={`panel ${className}`.trim()}>
             <div className="dashboard-header">
                 <div>
-                    <h2>Shipment dashboard</h2>
+                    <h2>{title}</h2>
                 </div>
             </div>
 
@@ -76,6 +80,7 @@ function ShipmentList({
                             <option value="created">Created</option>
                             <option value="assigned">Assigned</option>
                             <option value="in_transit">In transit</option>
+                            <option value="DELAYED">Delayed</option>
                             <option value="delivered">Delivered</option>
                         </select>
                         <IconButton
@@ -122,14 +127,14 @@ function ShipmentList({
 
                         return (
                             <article key={shipment.id} className="shipment-row" role="row">
-                                <Link to={`/shipments/${shipment.id}`} className="shipment-row-main">
-                                    <p className="meta">Shipment #{shipment.id}</p>
+                                <Link to={`${detailBasePath}/${shipment.id}`} className="shipment-row-main">
+                                    <p className="meta">{shipment.trackingCode || `Shipment #${shipment.id}`}</p>
                                     <h3>
                                         {shipment.originLabel || 'Origin pending'}
                                         <span>→</span>
                                         {shipment.destinationLabel || 'Destination pending'}
                                     </h3>
-                                    <p>{shipment.isPaused ? 'Paused' : 'Live tracking enabled'}</p>
+                                    <p>{shipment.shipper?.companyName || (shipment.isPaused ? 'Paused' : 'Live tracking enabled')}</p>
                                 </Link>
 
                                 <div className="shipment-cell">
@@ -150,7 +155,7 @@ function ShipmentList({
                                 </div>
 
                                 <div className="shipment-actions">
-                                    <IconLink to={`/shipments/${shipment.id}`} icon={ArrowRightIcon} label={`Open shipment ${shipment.id}`} />
+                                    <IconLink to={`${detailBasePath}/${shipment.id}`} icon={ArrowRightIcon} label={`Open shipment ${shipment.id}`} />
                                 </div>
                             </article>
                         )

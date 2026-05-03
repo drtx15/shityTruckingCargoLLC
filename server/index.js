@@ -1,7 +1,9 @@
+const { startTelemetry } = require('./src/telemetry')
 const config = require('./src/config')
 const buildApp = require('./src/app')
 
 const start = async () => {
+    startTelemetry('logistics-backend')
     const app = buildApp()
 
     try {

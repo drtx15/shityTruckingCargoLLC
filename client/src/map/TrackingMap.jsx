@@ -27,13 +27,14 @@ function RouteBounds({ positions }) {
 }
 
 function TrackingMap({ route, truck, compact = false, heading = 'Live Tracking' }) {
-    if (!route) {
-        return <div className="panel">Route unavailable.</div>
-    }
-
-    const origin = useMemo(() => [route.origin.lat, route.origin.lng], [route.origin.lat, route.origin.lng])
-    const destination = useMemo(() => [route.destination.lat, route.destination.lng], [route.destination.lat, route.destination.lng])
-    const routePolyline = Array.isArray(route.routePolyline) ? route.routePolyline : []
+    const routeAvailable = Boolean(route?.origin && route?.destination)
+    const originLat = route?.origin?.lat ?? 0
+    const originLng = route?.origin?.lng ?? 0
+    const destinationLat = route?.destination?.lat ?? 0
+    const destinationLng = route?.destination?.lng ?? 0
+    const origin = useMemo(() => [originLat, originLng], [originLat, originLng])
+    const destination = useMemo(() => [destinationLat, destinationLng], [destinationLat, destinationLng])
+    const routePolyline = useMemo(() => (Array.isArray(route?.routePolyline) ? route.routePolyline : []), [route?.routePolyline])
     const routePositions = useMemo(() => {
         if (routePolyline.length > 1) {
             return routePolyline.map((point) => [point.lat, point.lng])
@@ -42,20 +43,26 @@ function TrackingMap({ route, truck, compact = false, heading = 'Live Tracking' 
         return [origin, destination]
     }, [origin, destination, routePolyline])
 
+    const truckLat = truck?.currentLat
+    const truckLng = truck?.currentLng
     const truckPosition = useMemo(() => {
         if (
-            truck?.currentLat === null ||
-            truck?.currentLat === undefined ||
-            truck?.currentLng === null ||
-            truck?.currentLng === undefined
+            truckLat === null ||
+            truckLat === undefined ||
+            truckLng === null ||
+            truckLng === undefined
         ) {
             return null
         }
 
-        return [truck.currentLat, truck.currentLng]
-    }, [truck?.currentLat, truck?.currentLng])
+        return [truckLat, truckLng]
+    }, [truckLat, truckLng])
 
     const center = truckPosition || routePositions[0] || origin
+
+    if (!routeAvailable) {
+        return <div className="panel">Route unavailable.</div>
+    }
 
     return (
         <div className={`panel map-panel ${compact ? 'compact' : ''}`}>

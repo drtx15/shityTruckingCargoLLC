@@ -12,44 +12,97 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  password  String?
+  role      UserRole   @default(CUSTOMER)
+  shipperId Int?
+  shipper   Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  truckId   Int?
+  truck     Truck?     @relation(fields: [truckId], references: [id], onDelete: SetNull)
+  authCodes AuthCode[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([role])
+  @@index([shipperId])
+  @@index([truckId])
+}
+
+model Shipper {
+  id                   Int                   @id @default(autoincrement())
+  companyName          String
+  contactEmail         String                @unique
+  apiKeyPrefix         String?
+  apiKeyHash           String?
+  isActive             Boolean               @default(true)
+  users                User[]
+  shipments            Shipment[]
+  webhookSubscriptions WebhookSubscription[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([isActive, companyName])
 }
 
 model Truck {
   id            Int          @id @default(autoincrement())
   label         String       @unique
+  driverName    String?
+  maxWeightKg   Float        @default(10000)
+  currentLoadKg Float        @default(0)
   status        TruckStatus  @default(IDLE)
   currentLat    Float?
   currentLng    Float?
   currentSpeed  Float?
   lastUpdatedAt DateTime?
+  users         User[]
   shipments     Shipment[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  @@index([status, currentLat, currentLng])
 }
 
 model Shipment {
-  id             Int            @id @default(autoincrement())
-  originLat      Float
-  originLng      Float
-  originLabel    String?
-  destinationLat Float
-  destinationLng Float
-  destinationLabel String?
-  routePolyline  Json?
-  status         ShipmentStatus @default(PENDING)
-  isPaused       Boolean        @default(false)
-  etaMinutes     Int?
-  estimatedAt    DateTime?
-  assignedTruckId Int?
-  assignedTruck  Truck?         @relation(fields: [assignedTruckId], references: [id], onDelete: SetNull)
-  checkpoints    Checkpoint[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                   Int              @id @default(autoincrement())
+  trackingCode         String           @unique
+  shipperId            Int?
+  shipper              Shipper?         @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  originLat            Float
+  originLng            Float
+  originLabel          String?
+  destinationLat       Float
+  destinationLng       Float
+  destinationLabel     String?
+  routePolyline        Json?
+  status               ShipmentStatus   @default(PENDING)
+  priority             ShipmentPriority @default(STANDARD)
+  cargoDescription     String?
+  weightKg             Float            @default(1000)
+  slaDeadline          DateTime?
+  deliveryDeadline     DateTime?
+  delayReason          String?
+  delayedAt            DateTime?
+  isPaused             Boolean          @default(false)
+  etaMinutes           Int?
+  estimatedAt          DateTime?
+  proofRecipientName   String?
+  proofDeliveryNote    String?
+  proofDeliveredAt     DateTime?
+  proofReferenceUrl    String?
+  assignedTruckId      Int?
+  assignedTruck        Truck?           @relation(fields: [assignedTruckId], references: [id], onDelete: SetNull)
+  checkpoints          Checkpoint[]
+  etaHistory           EtaHistory[]
+  telemetryEvents      TelemetryEvent[]
+  webhookAttempts      WebhookAttempt[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([shipperId, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([assignedTruckId, status])
 }
 
 model Checkpoint {
@@ -64,6 +117,106 @@ model Checkpoint {
   @@index([shipmentId, timestamp])
 }
 
+model EtaHistory {
+  id                  Int      @id @default(autoincrement())
+  shipmentId          Int
+  shipment            Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  previousEtaMinutes  Int?
+  newEtaMinutes       Int?
+  remainingDistanceKm Float?
+  speedKph            Float?
+  reason              String
+  computedAt          DateTime @default(now())
+  arrivalErrorMinutes Int?
+
+  @@index([shipmentId, computedAt])
+}
+
+model TelemetryEvent {
+  id              Int       @id @default(autoincrement())
+  shipmentId      Int?
+  shipment        Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  truckId         Int
+  lat             Float
+  lng             Float
+  speed           Float
+  heading         Float?
+  accuracy        Float?
+  eventType       String?
+  state           String?
+  reason          String?
+  eventTimestamp  DateTime
+  processingState String    @default("PENDING")
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([truckId, eventTimestamp])
+  @@index([shipmentId, eventTimestamp])
+  @@index([processingState, createdAt])
+}
+
+model WebhookSubscription {
+  id                Int              @id @default(autoincrement())
+  shipperId         Int
+  shipper           Shipper          @relation(fields: [shipperId], references: [id], onDelete: Cascade)
+  eventType         String
+  targetUrl         String
+  signingSecretHash String?
+  enabled           Boolean          @default(true)
+  maxRetries        Int              @default(3)
+  attempts          WebhookAttempt[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([shipperId, enabled])
+  @@index([eventType, enabled])
+}
+
+model WebhookAttempt {
+  id              Int                  @id @default(autoincrement())
+  subscriptionId  Int?
+  subscription    WebhookSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  shipmentId      Int?
+  shipment        Shipment?            @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  eventType       String
+  payload         Json
+  responseStatus  Int?
+  responsePreview String?
+  errorMessage    String?
+  retryCount      Int                  @default(0)
+  nextRetryAt     DateTime?
+  state           WebhookAttemptState  @default(PENDING)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([state, nextRetryAt])
+  @@index([shipmentId, createdAt])
+}
+
+model AuthCode {
+  id         Int       @id @default(autoincrement())
+  email      String
+  codeHash   String
+  userId     Int?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([email, consumedAt, expiresAt])
+  @@index([userId, consumedAt])
+}
+
+enum UserRole {
+  CUSTOMER
+  DRIVER
+  DISPATCHER
+  FLEET_MANAGER
+  BROKER
+  ADMIN
+}
+
 enum TruckStatus {
   IDLE
   ASSIGNED
@@ -75,11 +228,33 @@ enum ShipmentStatus {
   PENDING
   ASSIGNED
   IN_TRANSIT
+  DELAYED
+  CANCELLED
   ARRIVED
 }
 
 enum CheckpointType {
+  CREATED
+  ASSIGNED
   DEPARTED
   IN_TRANSIT
+  DELAYED
+  RESUMED
   ARRIVED
+  DELIVERED
+  FAILED_DELIVERY
+  MANUAL_NOTE
+}
+
+enum ShipmentPriority {
+  STANDARD
+  EXPRESS
+  URGENT
+}
+
+enum WebhookAttemptState {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
 }

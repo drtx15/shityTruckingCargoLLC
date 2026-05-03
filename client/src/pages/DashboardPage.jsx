@@ -9,6 +9,7 @@ const statusAliases = {
     created: 'PENDING',
     assigned: 'ASSIGNED',
     in_transit: 'IN_TRANSIT',
+    delayed: 'DELAYED',
     delivered: 'ARRIVED'
 }
 
@@ -170,7 +171,7 @@ function DashboardPage() {
             const truckLabel = shipment.assignedTruck?.label || ''
             const originLabel = shipment.originLabel || ''
             const destinationLabel = shipment.destinationLabel || ''
-            const statusMatches = filters.status === 'all' || shipment.status === statusAliases[filters.status]
+            const statusMatches = filters.status === 'all' || shipment.status === (statusAliases[filters.status] || filters.status)
             const truckMatches = filters.truckId === 'all' || String(shipment.assignedTruckId || '') === filters.truckId
             const timeMatches = filters.timeRange === 'all' || toCreatedAgeBucket(shipment.createdAt, now) === filters.timeRange
             const quickMatches =

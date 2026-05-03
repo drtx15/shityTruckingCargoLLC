@@ -1,11 +1,27 @@
 const {
     assignTruckToShipment,
+    completeProofOfDelivery,
+    getTrackingByCode,
     getTrackingByShipmentId,
-    setShipmentPaused
+    setShipmentPaused,
+    suggestTrucksForShipment
 } = require('../services/shipment-service')
 const { startSimulation } = require('../services/simulator-service')
 const { searchLocations } = require('../services/geocoding-service')
 const { planShipmentRoute } = require('../services/route-planner')
+const { generateTrackingCode } = require('../services/tracking-code-service')
+const { buildSlaDeadline, normalizePriority } = require('../services/sla-service')
+const { toPublicTrackingPayload } = require('../services/tracking-snapshot-service')
+const {
+    ALL_ROLES,
+    ROLES,
+    SHIPMENT_CREATE_ROLES,
+    SHIPMENT_WRITE_ROLES,
+    applyCreateShipmentOwnership,
+    buildShipmentWhereForUser,
+    canReadShipmentRecord,
+    roleList
+} = require('../services/role-access-service')
 
 function normalizeLocationText(value) {
     return typeof value === 'string' ? value.trim() : ''
@@ -30,7 +46,7 @@ function normalizeRoutePolyline(routePolyline) {
         .filter(Boolean)
 }
 
-function buildShipmentCreateData(routePlan) {
+function buildShipmentCreateData(routePlan, payload = {}) {
     const originLat = Number(routePlan.originLat)
     const originLng = Number(routePlan.originLng)
     const destinationLat = Number(routePlan.destinationLat)
@@ -44,6 +60,10 @@ function buildShipmentCreateData(routePlan) {
         throw new Error('Route plan is missing valid destination coordinates')
     }
 
+    const priority = normalizePriority(payload.priority)
+    const weightKg = Number(payload.weightKg || payload.weight || 1000)
+    const deliveryDeadline = payload.deliveryDeadline ? new Date(payload.deliveryDeadline) : null
+
     return {
         originLat,
         originLng,
@@ -51,12 +71,17 @@ function buildShipmentCreateData(routePlan) {
         destinationLat,
         destinationLng,
         destinationLabel: normalizeLocationText(routePlan.destinationLabel) || null,
-        routePolyline: normalizeRoutePolyline(routePlan.routePolyline)
+        routePolyline: normalizeRoutePolyline(routePlan.routePolyline),
+        shipperId: Number(payload.shipperId) || null,
+        priority,
+        cargoDescription: normalizeLocationText(payload.cargoDescription) || null,
+        weightKg: Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 1000,
+        deliveryDeadline,
+        slaDeadline: deliveryDeadline || buildSlaDeadline(priority)
     }
 }
-
 async function shipmentRoutes(app) {
-    app.get('/locations/search', async (request, reply) => {
+    app.get('/locations/search', { preHandler: app.authorize(ALL_ROLES) }, async (request, reply) => {
         const query = normalizeLocationText(request.query?.q)
         const limit = Number(request.query?.limit || 5)
 
@@ -68,8 +93,12 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.post('/shipments', async (request, reply) => {
-        const payload = request.body || {}
+    app.post('/shipments', { preHandler: app.authorize(roleList(SHIPMENT_CREATE_ROLES)) }, async (request, reply) => {
+        const payload = applyCreateShipmentOwnership(request.user, request.body || {})
+
+        if (request.user.role === ROLES.CUSTOMER && !payload.shipperId) {
+            return reply.code(403).send({ message: 'Customer account is not linked to a shipper' })
+        }
 
         let routePlan
 
@@ -80,24 +109,50 @@ async function shipmentRoutes(app) {
         }
 
         const shipment = await app.prisma.shipment.create({
-            data: buildShipmentCreateData(routePlan)
+            data: {
+                ...buildShipmentCreateData(routePlan, payload),
+                trackingCode: await generateTrackingCode(app.prisma),
+                checkpoints: {
+                    create: {
+                        type: 'CREATED',
+                        lat: routePlan.originLat,
+                        lng: routePlan.originLng
+                    }
+                }
+            },
+            include: {
+                shipper: {
+                    select: { id: true, companyName: true, contactEmail: true }
+                }
+            }
         })
 
         return reply.code(201).send(shipment)
     })
 
-    app.get('/shipments', async () => {
+    app.get('/shipments', { preHandler: app.authorize(ALL_ROLES) }, async (request) => {
         return app.prisma.shipment.findMany({
+            where: buildShipmentWhereForUser(request.user),
             include: {
                 assignedTruck: {
                     select: {
                         id: true,
                         label: true,
+                        driverName: true,
                         status: true,
+                        maxWeightKg: true,
+                        currentLoadKg: true,
                         currentLat: true,
                         currentLng: true,
                         currentSpeed: true,
                         lastUpdatedAt: true
+                    }
+                },
+                shipper: {
+                    select: {
+                        id: true,
+                        companyName: true,
+                        contactEmail: true
                     }
                 }
             },
@@ -107,12 +162,21 @@ async function shipmentRoutes(app) {
         })
     })
 
-    app.get('/shipments/:id', async (request, reply) => {
+    app.get('/shipments/:id', { preHandler: app.authorize(ALL_ROLES) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
-        const shipment = await app.prisma.shipment.findUnique({
-            where: { id: shipmentId },
+        const shipment = await app.prisma.shipment.findFirst({
+            where: buildShipmentWhereForUser(request.user, { id: shipmentId }),
             include: {
+                shipper: true,
                 assignedTruck: true,
+                etaHistory: {
+                    orderBy: { computedAt: 'desc' },
+                    take: 25
+                },
+                webhookAttempts: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 25
+                },
                 checkpoints: {
                     orderBy: { timestamp: 'desc' },
                     take: 100
@@ -130,10 +194,10 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.get('/shipments/:id/route', async (request, reply) => {
+    app.get('/shipments/:id/route', { preHandler: app.authorize(ALL_ROLES) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
-        const shipment = await app.prisma.shipment.findUnique({
-            where: { id: shipmentId },
+        const shipment = await app.prisma.shipment.findFirst({
+            where: buildShipmentWhereForUser(request.user, { id: shipmentId }),
             select: {
                 id: true,
                 routePolyline: true
@@ -151,7 +215,7 @@ async function shipmentRoutes(app) {
         return normalizeRoutePolyline(shipment.routePolyline)
     })
 
-    app.patch('/shipments/:id', async (request, reply) => {
+    app.patch('/shipments/:id', { preHandler: app.authorize(roleList(SHIPMENT_WRITE_ROLES)) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
         const payload = request.body || {}
 
@@ -166,7 +230,7 @@ async function shipmentRoutes(app) {
         try {
             const shipment = await app.prisma.shipment.update({
                 where: { id: shipmentId },
-                data: buildShipmentCreateData(routePlan)
+                data: buildShipmentCreateData(routePlan, payload)
             })
 
             return shipment
@@ -181,7 +245,7 @@ async function shipmentRoutes(app) {
 
 
 
-    app.post('/shipments/:id/pause', async (request, reply) => {
+    app.post('/shipments/:id/pause', { preHandler: app.authorize([ROLES.DISPATCHER, ROLES.ADMIN]) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
 
         try {
@@ -193,7 +257,7 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.post('/shipments/:id/resume', async (request, reply) => {
+    app.post('/shipments/:id/resume', { preHandler: app.authorize([ROLES.DISPATCHER, ROLES.ADMIN]) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
 
         try {
@@ -205,7 +269,7 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.post('/shipments/:id/assign-truck', async (request, reply) => {
+    app.post('/shipments/:id/assign-truck', { preHandler: app.authorize([ROLES.DISPATCHER, ROLES.FLEET_MANAGER, ROLES.ADMIN]) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
         const truckId = Number(request.body?.truckId)
 
@@ -230,7 +294,36 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.delete('/shipments/:id', async (request, reply) => {
+    app.get('/shipments/:id/truck-suggestions', { preHandler: app.authorize([ROLES.DISPATCHER, ROLES.FLEET_MANAGER, ROLES.ADMIN]) }, async (request, reply) => {
+        const shipmentId = Number(request.params.id)
+
+        try {
+            return await suggestTrucksForShipment(app, shipmentId)
+        } catch (error) {
+            const statusCode = error.message.includes('not found') ? 404 : 400
+            return reply.code(statusCode).send({ message: error.message })
+        }
+    })
+
+    app.post('/shipments/:id/proof-of-delivery', { preHandler: app.authorize([ROLES.DRIVER, ROLES.DISPATCHER, ROLES.ADMIN]) }, async (request, reply) => {
+        const shipmentId = Number(request.params.id)
+        const shipmentRecord = await app.prisma.shipment.findUnique({
+            where: { id: shipmentId },
+            select: { id: true, shipperId: true, assignedTruckId: true }
+        })
+
+        if (!canReadShipmentRecord(request.user, shipmentRecord)) {
+            return reply.code(shipmentRecord ? 403 : 404).send({ message: shipmentRecord ? 'Forbidden' : 'Shipment not found' })
+        }
+
+        try {
+            return await completeProofOfDelivery(app, shipmentId, request.body || {})
+        } catch (error) {
+            const statusCode = error.message.includes('not found') ? 404 : 400
+            return reply.code(statusCode).send({ message: error.message })
+        }
+    })
+    app.delete('/shipments/:id', { preHandler: app.authorize([ROLES.BROKER, ROLES.ADMIN]) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
 
         try {
@@ -245,32 +338,43 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.get('/tracking/:id', async (request, reply) => {
+    app.get('/tracking/:id', { preHandler: app.authorize(ALL_ROLES) }, async (request, reply) => {
         const shipmentId = Number(request.params.id)
-        const shipment = await getTrackingByShipmentId(app.prisma, shipmentId)
+        const allowed = await app.rateLimit(request, reply, { scope: 'tracking' })
+        if (!allowed) {
+            return
+        }
+        const shipment = await getTrackingByShipmentId(app, shipmentId)
+        if (!shipment) {
+            return reply.code(404).send({ message: 'Shipment not found' })
+        }
+
+        const shipmentRecord = {
+            shipperId: shipment.shipper?.id,
+            assignedTruckId: shipment.truck?.id
+        }
+
+        if (!canReadShipmentRecord(request.user, shipmentRecord)) {
+            return reply.code(403).send({ message: 'Forbidden' })
+        }
+
+        return shipment
+    })
+
+    app.get('/tracking/code/:trackingCode', async (request, reply) => {
+        const allowed = await app.rateLimit(request, reply, { scope: 'public-tracking', capacity: 80, refillPerMinute: 80 })
+        if (!allowed) {
+            return
+        }
+
+        const trackingCode = normalizeLocationText(request.params.trackingCode).toUpperCase()
+        const shipment = await getTrackingByCode(app, trackingCode)
 
         if (!shipment) {
             return reply.code(404).send({ message: 'Shipment not found' })
         }
 
-        return {
-            shipmentId: shipment.id,
-            status: shipment.status,
-            isPaused: shipment.isPaused,
-            etaMinutes: shipment.etaMinutes,
-            estimatedAt: shipment.estimatedAt,
-            createdAt: shipment.createdAt,
-            updatedAt: shipment.updatedAt,
-            originLabel: shipment.originLabel,
-            destinationLabel: shipment.destinationLabel,
-            route: {
-                origin: { lat: shipment.originLat, lng: shipment.originLng },
-                destination: { lat: shipment.destinationLat, lng: shipment.destinationLng },
-                routePolyline: normalizeRoutePolyline(shipment.routePolyline || [])
-            },
-            truck: shipment.assignedTruck,
-            checkpoints: shipment.checkpoints
-        }
+        return toPublicTrackingPayload(shipment)
     })
 }
 

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_TransitGrid" targetNamespace="https://transit-grid.local/bpmn">
+  <process id="TelemetryWorkflow" name="Telemetry Stream Processing" isExecutable="false">
+    <startEvent id="StartTelemetry" name="Simulator emits GPS update" />
+    <task id="ValidateTelemetry" name="Validate location payload" />
+    <task id="EnqueueTelemetry" name="Publish to RabbitMQ telemetry exchange" />
+    <task id="ConsumeTelemetry" name="Worker consumes telemetry message" />
+    <task id="UpdateTruck" name="Update truck position and speed" />
+    <task id="RecomputeEta" name="Recompute ETA and write ETA history" />
+    <exclusiveGateway id="DelayGateway" name="Delayed?" />
+    <task id="CreateDelayCheckpoint" name="Create delayed checkpoint and webhook attempt" />
+    <task id="RefreshSnapshot" name="Refresh Redis tracking snapshot" />
+    <task id="BroadcastWebSocket" name="Publish WebSocket tracking event" />
+    <task id="AckMessage" name="Ack RabbitMQ message" />
+    <endEvent id="EndTelemetry" name="Tracking state updated" />
+    <sequenceFlow id="flow1" sourceRef="StartTelemetry" targetRef="ValidateTelemetry" />
+    <sequenceFlow id="flow2" sourceRef="ValidateTelemetry" targetRef="EnqueueTelemetry" />
+    <sequenceFlow id="flow3" sourceRef="EnqueueTelemetry" targetRef="ConsumeTelemetry" />
+    <sequenceFlow id="flow4" sourceRef="ConsumeTelemetry" targetRef="UpdateTruck" />
+    <sequenceFlow id="flow5" sourceRef="UpdateTruck" targetRef="RecomputeEta" />
+    <sequenceFlow id="flow6" sourceRef="RecomputeEta" targetRef="DelayGateway" />
+    <sequenceFlow id="flow7" sourceRef="DelayGateway" targetRef="CreateDelayCheckpoint" name="yes" />
+    <sequenceFlow id="flow8" sourceRef="CreateDelayCheckpoint" targetRef="RefreshSnapshot" />
+    <sequenceFlow id="flow9" sourceRef="DelayGateway" targetRef="RefreshSnapshot" name="no" />
+    <sequenceFlow id="flow10" sourceRef="RefreshSnapshot" targetRef="BroadcastWebSocket" />
+    <sequenceFlow id="flow11" sourceRef="BroadcastWebSocket" targetRef="AckMessage" />
+    <sequenceFlow id="flow12" sourceRef="AckMessage" targetRef="EndTelemetry" />
+  </process>
+</definitions>

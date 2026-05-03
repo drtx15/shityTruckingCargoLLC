@@ -1,4 +1,4 @@
-const { processLocationUpdate } = require('../services/shipment-service')
+const { enqueueTelemetry } = require('../services/telemetry-queue-service')
 
 function toNumber(value) {
     const number = Number(value)
@@ -33,7 +33,7 @@ async function internalRoutes(app) {
             return reply.code(400).send({ message: 'lat, lng, speed and timestamp must be valid numbers' })
         }
 
-        const result = await processLocationUpdate(app, {
+        const result = await enqueueTelemetry(app, {
             truckId: Number(payload.truckId),
             lat,
             lng,

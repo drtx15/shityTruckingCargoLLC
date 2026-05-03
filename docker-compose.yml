@@ -1,17 +1,125 @@
 name: transit-grid
 
+x-backend-env: &backend-env
+  NODE_ENV: production
+  PORT: 3000
+  HOST: 0.0.0.0
+  CORS_ORIGIN: http://localhost:8080
+  JWT_SECRET: ${JWT_SECRET:-change-me}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  AUTH_FROM_EMAIL: ${AUTH_FROM_EMAIL:-Transit Grid <auth@drtx.tech>}
+  AUTH_CODE_TTL_MINUTES: ${AUTH_CODE_TTL_MINUTES:-10}
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/transit_grid?schema=public
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+  SIMULATOR_URL: http://simulator:8001
+  PUBLIC_BASE_URL: http://localhost:8080
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_SERVICE_NAME: logistics-backend
+  NOMINATIM_BASE_URL: https://nominatim.openstreetmap.org
+  OSRM_BASE_URL: http://router.project-osrm.org
+
 services:
-  transit-grid-postgres:
+  gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend-a:
+        condition: service_healthy
+      backend-b:
+        condition: service_healthy
+      client:
+        condition: service_started
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+        VITE_WS_URL: ws://localhost:8080
+    depends_on:
+      backend-a:
+        condition: service_healthy
+
+  backend-a:
+    build: ./server
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend-b:
+    build: ./server
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    build: ./server
+    command: ["npm", "run", "worker"]
+    environment: *backend-env
+    depends_on:
+      backend-a:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  simulator:
+    build: ./simulator
+    environment:
+      BACKEND_URL: http://backend-a:3000
+      MAX_ROUTE_POINTS: 250
+      LOCATION_EMIT_INTERVAL_SECONDS: 1
+    depends_on:
+      backend-a:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: ./server
+    command: ["sh", "-c", "npm run prisma:deploy && npm run seed"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
     image: postgres:16-alpine
-    container_name: transit-grid-postgres
-    restart: unless-stopped
-    command: ["postgres", "-c", "listen_addresses=*"]
     environment:
       POSTGRES_DB: transit_grid
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "0.0.0.0:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,5 +128,83 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel-collector.yml"]
+    volumes:
+      - ./infra/observability/otel-collector.yml:/etc/otel-collector.yml:ro
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  loki:
+    image: grafana/loki:3.2.1
+    command: ["-config.file=/etc/loki/local-config.yml"]
+    volumes:
+      - ./infra/observability/loki.yml:/etc/loki/local-config.yml:ro
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    command: ["-config.file=/etc/promtail.yml"]
+    volumes:
+      - ./infra/observability/promtail.yml:/etc/promtail.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    user: "0"
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./infra/observability/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/tmp/tempo
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
 volumes:
   postgres_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  tempo_data:

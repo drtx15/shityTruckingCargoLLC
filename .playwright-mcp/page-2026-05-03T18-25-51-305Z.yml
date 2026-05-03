@@ -1,0 +1,61 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e6]: Transit Grid
+      - heading "Logistics Control" [level=1] [ref=e7]
+    - navigation "Primary navigation" [ref=e8]:
+      - link "Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Shipments" [ref=e10] [cursor=pointer]:
+        - /url: /shipments
+      - link "New" [ref=e11] [cursor=pointer]:
+        - /url: /shipments/new
+      - link "Shippers" [ref=e12] [cursor=pointer]:
+        - /url: /shippers
+      - link "Webhooks" [ref=e13] [cursor=pointer]:
+        - /url: /webhooks
+      - link "ETA" [ref=e14] [cursor=pointer]:
+        - /url: /eta-history
+      - link "Delivery" [ref=e15] [cursor=pointer]:
+        - /url: /proof-of-delivery
+      - link "Trucks" [ref=e16] [cursor=pointer]:
+        - /url: /trucks
+      - link "Analytics" [ref=e17] [cursor=pointer]:
+        - /url: /analytics
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - complementary [ref=e20]:
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - heading "Create shipment" [level=2] [ref=e24]
+            - button "Swap route" [ref=e25] [cursor=pointer]:
+              - img [ref=e26]
+              - generic [ref=e28]: Swap route
+          - generic [ref=e29]:
+            - generic [ref=e30]:
+              - generic [ref=e31]: Origin (city, address, ZIP, state/country)
+              - textbox "Origin (city, address, ZIP, state/country)" [ref=e32]
+            - generic [ref=e33]:
+              - generic [ref=e34]: Destination (city, address, ZIP, state/country)
+              - textbox "Destination (city, address, ZIP, state/country)" [ref=e35]
+          - button "Create shipment" [ref=e37] [cursor=pointer]:
+            - img [ref=e38]
+            - generic [ref=e40]: Create shipment
+        - generic [ref=e41]:
+          - heading "Trucks" [level=2] [ref=e44]
+          - generic [ref=e45]:
+            - textbox "Truck label" [ref=e46]
+            - button "Create truck" [ref=e47] [cursor=pointer]:
+              - img [ref=e48]
+              - generic [ref=e50]: Create truck
+            - button "Edit trucks" [ref=e51] [cursor=pointer]:
+              - img [ref=e52]
+              - generic [ref=e55]: Edit trucks
+      - generic [ref=e56]:
+        - heading "Shipment dashboard" [level=2] [ref=e59]
+        - button "Open search" [ref=e61] [cursor=pointer]:
+          - img [ref=e62]
+          - generic [ref=e65]: Open search
+        - generic [ref=e66]:
+          - heading "No shipments match the current filters." [level=3] [ref=e67]
+          - paragraph [ref=e68]: Clear a filter or create a new shipment to populate the lifecycle board.

@@ -5,10 +5,15 @@ import { IconButton, PlusIcon, SwapIcon } from './IconControls'
 
 const initialForm = {
     origin: '',
-    destination: ''
+    destination: '',
+    shipperId: '',
+    priority: 'STANDARD',
+    cargoDescription: '',
+    weightKg: '1000',
+    deliveryDeadline: ''
 }
 
-function ShipmentForm({ onCreate }) {
+function ShipmentForm({ onCreate, shippers = [], expanded = false, hideShipper = false }) {
     const [form, setForm] = useState(initialForm)
     const [originSuggestions, setOriginSuggestions] = useState([])
     const [destinationSuggestions, setDestinationSuggestions] = useState([])
@@ -68,6 +73,7 @@ function ShipmentForm({ onCreate }) {
 
     const swapLocations = () => {
         setForm((prev) => ({
+            ...prev,
             origin: prev.destination,
             destination: prev.origin
         }))
@@ -101,7 +107,12 @@ function ShipmentForm({ onCreate }) {
             destination: form.destination.trim(),
             destinationLat: selectedDestination?.lat,
             destinationLng: selectedDestination?.lng,
-            destinationLabel: selectedDestination?.label || form.destination.trim()
+            destinationLabel: selectedDestination?.label || form.destination.trim(),
+            shipperId: form.shipperId ? Number(form.shipperId) : null,
+            priority: form.priority,
+            cargoDescription: form.cargoDescription.trim(),
+            weightKg: Number(form.weightKg || 1000),
+            deliveryDeadline: form.deliveryDeadline || null
         })
     }
 
@@ -122,6 +133,41 @@ function ShipmentForm({ onCreate }) {
                 <IconButton type="button" icon={SwapIcon} label="Swap route" className="icon-button--soft" onClick={swapLocations} />
             </div>
             <div className="form-grid">
+                {expanded && (
+                    <>
+                        {!hideShipper && (
+                            <label>
+                                Shipper
+                                <select name="shipperId" value={form.shipperId} onChange={handleChange}>
+                                    <option value="">No shipper selected</option>
+                                    {shippers.map((shipper) => (
+                                        <option key={shipper.id} value={shipper.id}>{shipper.companyName}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                        <label>
+                            Priority
+                            <select name="priority" value={form.priority} onChange={handleChange}>
+                                <option value="STANDARD">Standard</option>
+                                <option value="EXPRESS">Express</option>
+                                <option value="URGENT">Urgent</option>
+                            </select>
+                        </label>
+                        <label>
+                            Cargo description
+                            <input name="cargoDescription" value={form.cargoDescription} onChange={handleChange} placeholder="Electronics pallets" />
+                        </label>
+                        <label>
+                            Weight kg
+                            <input name="weightKg" type="number" min="1" value={form.weightKg} onChange={handleChange} />
+                        </label>
+                        <label>
+                            Delivery deadline
+                            <input name="deliveryDeadline" type="datetime-local" value={form.deliveryDeadline} onChange={handleChange} />
+                        </label>
+                    </>
+                )}
                 <div className="suggestion-field">
                     <label htmlFor="origin-input">Origin (city, address, ZIP, state/country)</label>
                     <input

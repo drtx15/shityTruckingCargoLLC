@@ -1,141 +1,126 @@
-# Distributed Logistics Shipment Tracking
+# Transit Grid Logistics Platform
 
-This project simulates a distributed logistics platform with three independent components:
+Transit Grid is a distributed logistics and shipment-tracking system for the Database Application and Design Spring 2026 group project. It models shippers, shipments, trucks, checkpoints, ETA computation, webhook notifications, public tracking codes, live WebSocket tracking, streaming telemetry, Redis snapshots, and operational analytics.
 
-- Core backend API (Node.js + Fastify + Prisma + PostgreSQL)
-- External simulator service (Python + FastAPI)
-- Frontend UI (React + Vite + Leaflet)
-
-## Architecture
-
-- React UI talks only to Fastify backend.
-- Fastify is the single source of truth for shipments, trucks, status, checkpoints, and ETA.
-- FastAPI simulator stores no business data and only emits location updates.
-
-Flow:
-
-1. Create shipment in backend.
-2. Assign truck in backend.
-3. Backend asks simulator to start movement.
-4. Simulator emits GPS updates to backend `/internal/location-update`.
-5. Backend updates truck location, shipment status, checkpoints, ETA, and triggers webhooks.
-6. Frontend polls backend tracking endpoint and renders map/timeline.
-
-## Folder Layout
-
-- client: React + Vite app
-- server: Fastify + Prisma backend
-- simulator: FastAPI simulation service
-
-## Backend Endpoints
-
-- POST /shipments (accepts coordinates or human-readable origin/destination text)
-- GET /shipments
-- GET /shipments/:id
-- POST /shipments/:id/assign-truck
-- GET /tracking/:id
-- GET /locations/search?q=...&limit=5
-- POST /internal/location-update
-- GET /trucks
-- POST /trucks
-- POST /trucks/seed
-- POST /auth/register
-- POST /auth/login
-
-## Simulator Endpoints
-
-- GET /health
-- GET /simulate/state
-- POST /simulate/start
-
-## Event Contract (Simulator -> Backend)
-
-```json
-{
-  "truckId": 1,
-  "lat": 41.3,
-  "lng": 69.24,
-  "speed": 42,
-  "timestamp": 1710000000
-}
-```
-
-## Environment Variables
-
-Each runtime now has its own env template:
-
-- `server/.env.example`
-- `client/.env.example`
-- `simulator/.env.example`
-
-### server/.env
-
-- DATABASE_URL: PostgreSQL connection string
-- JWT_SECRET: token secret
-- PORT: backend port (default 3000)
-- CORS_ORIGIN: frontend URL (default http://localhost:5173)
-- SIMULATOR_URL: simulator base URL (example http://localhost:8001)
-- WEBHOOK_URL: optional URL for status-change webhook callbacks
-- NOMINATIM_BASE_URL: optional geocoding base URL (default https://nominatim.openstreetmap.org)
-- NOMINATIM_USER_AGENT: optional User-Agent used for OpenStreetMap Nominatim requests
-
-### simulator env
-
-- BACKEND_URL: backend URL (default http://localhost:3000)
-
-### client env (optional)
-
-- VITE_API_URL: backend URL (default http://localhost:3000)
-
-## Run Instructions
-
-### Windows / PowerShell quick start
-
-Run these from the workspace root: `D:\TL\IPproject\shityTruckingCargoLLC`.
-
-1. Start PostgreSQL:
+## One-Command Run
 
 ```powershell
-docker compose up -d
+docker compose up -d --build
 ```
 
-2. Backend setup and start:
+The gateway is the single public entrypoint:
+
+- App: `http://localhost:8080`
+- REST API through gateway: `http://localhost:8080/api`
+- Swagger UI: `http://localhost:8080/docs`
+- WebSocket tracking: `ws://localhost:8080/ws/tracking?trackingCode=TRK-2026-DEMO01`
+
+The compose stack starts Nginx, React, two Fastify backend replicas, a telemetry worker, Python simulator, Postgres, Redis, RabbitMQ, OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Promtail.
+
+## Local Development
+
+Backend:
 
 ```powershell
 Set-Location server
 npm install
 npm run prisma:generate
-npm run prisma:migrate -- --name init
+npm run prisma:migrate -- --name local
+npm run seed
 npm run dev
 ```
 
-3. Simulator setup and start:
+Frontend:
 
 ```powershell
-Set-Location ..\simulator
+Set-Location client
+npm install
+npm run dev
+```
+
+Simulator:
+
+```powershell
+Set-Location simulator
 pip install -r requirements.txt
 $env:BACKEND_URL = "http://localhost:3000"
 uvicorn main:app --reload --port 8001
 ```
 
-4. Frontend setup and start:
+## Environment Variables
+
+Backend uses `server/.env.example` as the reference. Important variables:
+
+- `DATABASE_URL`: Postgres connection string.
+- `REDIS_URL`: Redis URL for tracking snapshots, pub/sub, geocoding cache, and token buckets.
+- `RABBITMQ_URL`: RabbitMQ URL for telemetry streaming.
+- `SIMULATOR_URL`: Python simulator base URL.
+- `PUBLIC_BASE_URL`: public gateway URL used in generated links.
+- `JWT_SECRET`: auth token signing secret.
+- `RESEND_API_KEY`: Resend API key for passwordless email verification.
+- `AUTH_FROM_EMAIL`: sender identity for verification codes, defaults to `Transit Grid <auth@drtx.tech>`.
+- `AUTH_CODE_TTL_MINUTES`: one-time login code lifetime.
+- `RATE_LIMIT_CAPACITY`, `RATE_LIMIT_REFILL_PER_MINUTE`: token bucket defaults.
+- `DELAY_STOPPED_MINUTES`, `DELAY_ETA_GRACE_MINUTES`: delay detection controls.
+
+Frontend uses:
+
+- `VITE_API_URL`: REST API base URL.
+- `VITE_WS_URL`: WebSocket base URL.
+
+## Main Features
+
+- Public tracking codes such as `TRK-2026-8F3K2A`.
+- Shipper accounts with API key rotation.
+- Shipment priority: `STANDARD`, `EXPRESS`, `URGENT`.
+- Truck assignment rules based on idle state and capacity.
+- Checkpoint timeline, ETA history, delay detection, and proof of delivery.
+- Webhook subscriptions and delivery attempts with retry tracking.
+- WebSocket live tracking for operator and public pages.
+- Passwordless Resend login with role-based customer, driver, dispatcher, fleet, broker, and admin workspaces.
+- Redis-backed active tracking snapshots.
+- RabbitMQ telemetry stream with worker processing.
+- From-scratch token-bucket rate limiter in `server/src/system-components/token-bucket.js`.
+
+## Project Structure
+
+- `client/`: React + Vite UI.
+- `server/`: Fastify API, Prisma data layer, worker, Redis/RabbitMQ integrations.
+- `simulator/`: FastAPI truck movement simulator.
+- `infra/nginx/`: API gateway configuration.
+- `infra/observability/`: Prometheus, Loki, Tempo, Grafana, Promtail, and OTel configs.
+- `report/`: report source, diagrams, and BPMN documentation.
+- `tools/`: project utility scripts such as tracking benchmarks.
+
+## Change Guide
+
+1. Update Prisma schema and add a migration for data-model changes.
+2. Keep business rules in `server/src/services/`, not directly inside routes.
+3. Add or update OpenAPI schemas when changing REST request/response shapes.
+4. Add UI routes in `client/src/App.jsx` and page-level screens under `client/src/pages/`.
+5. Keep generated artifacts, caches, logs, `node_modules`, virtual environments, and build outputs out of Git.
+
+## Benchmark
+
+After the stack is running and seeded:
 
 ```powershell
-Set-Location ..\client
-npm install
-npm run dev
+node tools\benchmark-tracking.mjs
 ```
 
-### Notes
+Use `API_BASE_URL`, `SHIPMENT_ID`, and `ITERATIONS` to compare Postgres fallback vs Redis snapshot reads for the report.
 
-- PostgreSQL runs in the `transit-grid-postgres` container and exposes `localhost:5433` on the host.
-- If you open a new terminal, repeat the `Set-Location` step before running commands in that component.
-- If Prisma reports missing Shipment fields such as `originLabel`, `destinationLabel`, or `isPaused`, run `cd server` then `npm run prisma:generate` to refresh the generated client.
-- To stop the database container, run `docker compose down` from the workspace root.
+## Release Notes
 
-## Behavior Ownership
+- `v1.0`: distributed logistics platform with REST, WebSocket tracking, Redis snapshots, RabbitMQ telemetry pipeline, webhook notifications, token-bucket rate limiting, analytics, Docker Compose orchestration, and observability scaffolding.
 
-- Fastify decides shipment lifecycle and ETA.
-- Fastify resolves place text (city/address/ZIP/state/country) into coordinates via OpenStreetMap Nominatim.
-- FastAPI only emits movement telemetry.
-- React only displays backend-provided state.
+## Demo Role Accounts
+
+When Resend is not configured locally, the login endpoint returns a development code in the UI after requesting a code. Seeded demo emails:
+
+- `customer@drtx.tech`
+- `driver@drtx.tech`
+- `dispatcher@drtx.tech`
+- `fleet@drtx.tech`
+- `broker@drtx.tech`
+- `admin@drtx.tech`
