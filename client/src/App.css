@@ -555,15 +555,7 @@ button:hover,
   align-content: start;
 }
 
-.detail-reroute {
-  position: relative;
-  display: grid;
-  gap: 8px;
-}
 
-.detail-reroute button {
-  justify-self: start;
-}
 
 .detail-grid {
   align-items: start;

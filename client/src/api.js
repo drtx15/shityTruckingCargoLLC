@@ -75,12 +75,7 @@ export function assignTruck(shipmentId, truckId) {
     })
 }
 
-export function updateShipmentDestination(shipmentId, payload) {
-    return request(`/shipments/${shipmentId}/destination`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload)
-    })
-}
+
 
 export function updateShipment(shipmentId, payload) {
     return request(`/shipments/${shipmentId}`, {

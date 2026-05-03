@@ -6,13 +6,11 @@ import {
     getTracking,
     getTrucks,
     pauseShipment,
-    resumeShipment,
-    searchLocations,
-    updateShipmentDestination
+    resumeShipment
 } from '../api'
 import StatusTimeline from '../components/StatusTimeline'
 import TrackingMap from '../map/TrackingMap'
-import { ArrowLeftIcon, IconButton, IconLink, PauseIcon, PlayIcon, RouteIcon, TrashIcon } from '../components/IconControls'
+import { ArrowLeftIcon, IconButton, IconLink, PauseIcon, PlayIcon, TrashIcon } from '../components/IconControls'
 
 const statusMeta = {
     PENDING: { label: 'Created', className: 'status-created' },
@@ -116,12 +114,8 @@ function ShipmentDetailPage() {
     const { id } = useParams()
     const [tracking, setTracking] = useState(null)
     const [trucks, setTrucks] = useState([])
-    const [destinationQuery, setDestinationQuery] = useState('')
-    const [destinationSuggestions, setDestinationSuggestions] = useState([])
-    const [selectedDestination, setSelectedDestination] = useState(null)
     const [error, setError] = useState('')
     const [actionError, setActionError] = useState('')
-    const destinationTimerRef = useRef(null)
     const loadAbortRef = useRef(null)
 
     const load = async () => {
@@ -157,43 +151,7 @@ function ShipmentDetailPage() {
         }
     }
 
-    useEffect(() => {
-        return () => {
-            if (destinationTimerRef.current) {
-                clearTimeout(destinationTimerRef.current)
-            }
-        }
-    }, [])
 
-    const lookupDestination = (query) => {
-        const normalizedQuery = query.trim()
-
-        if (destinationTimerRef.current) {
-            clearTimeout(destinationTimerRef.current)
-        }
-
-        if (normalizedQuery.length < 2) {
-            setDestinationSuggestions([])
-            return
-        }
-
-        destinationTimerRef.current = setTimeout(async () => {
-            try {
-                const results = await searchLocations(normalizedQuery, 5)
-                setDestinationSuggestions(results)
-            } catch (lookupError) {
-                setDestinationSuggestions([])
-                setActionError(lookupError.message)
-            }
-        }, 300)
-    }
-
-    const handleDestinationChange = (event) => {
-        const value = event.target.value
-        setDestinationQuery(value)
-        setSelectedDestination(null)
-        lookupDestination(value)
-    }
 
     const handleAssignTruck = async (event) => {
         const truckId = Number(event.target.value)
@@ -212,6 +170,8 @@ function ShipmentDetailPage() {
         }
     }
 
+
+
     const handlePauseToggle = async () => {
         try {
             if (tracking?.isPaused) {
@@ -227,34 +187,7 @@ function ShipmentDetailPage() {
         }
     }
 
-    const handleDestinationUpdate = async () => {
-        const query = destinationQuery.trim()
-        const nextDestination = selectedDestination || (query ? { label: query } : null)
 
-        if (!nextDestination) {
-            setActionError('Choose a destination before rerouting')
-            return
-        }
-
-        try {
-            await updateShipmentDestination(id, {
-                originLat: tracking?.route?.origin?.lat,
-                originLng: tracking?.route?.origin?.lng,
-                originLabel: tracking?.originLabel,
-                destination: nextDestination.label,
-                destinationLat: nextDestination.lat,
-                destinationLng: nextDestination.lng,
-                destinationLabel: nextDestination.label
-            })
-            await load()
-            setActionError('')
-            setDestinationQuery('')
-            setSelectedDestination(null)
-            setDestinationSuggestions([])
-        } catch (rerouteError) {
-            setActionError(rerouteError.message)
-        }
-    }
 
     const handleDeleteShipment = async () => {
         const confirmed = window.confirm('Delete this shipment?')
@@ -393,39 +326,6 @@ function ShipmentDetailPage() {
                             ))}
                         </select>
                     </label>
-
-                    <div className="suggestion-field detail-reroute">
-                        <label htmlFor="destination-input">Update destination</label>
-                        <input
-                            id="destination-input"
-                            value={destinationQuery}
-                            onChange={handleDestinationChange}
-                            placeholder="Search a new destination"
-                            autoComplete="off"
-                        />
-                        {destinationSuggestions.length > 0 && (
-                            <div className="suggestions-menu" role="listbox" aria-label="Destination suggestions">
-                                {destinationSuggestions.map((location) => (
-                                    <button
-                                        key={`${location.label}-${location.lat}-${location.lng}`}
-                                        type="button"
-                                        className="suggestion-item"
-                                        onClick={() => {
-                                            setSelectedDestination(location)
-                                            setDestinationQuery(location.label)
-                                            setDestinationSuggestions([])
-                                        }}
-                                    >
-                                        <span className="suggestion-label">{location.label}</span>
-                                        <span className="suggestion-meta">
-                                            {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <IconButton type="button" icon={RouteIcon} label="Re-route shipment" onClick={handleDestinationUpdate} />
-                    </div>
                 </div>
 
                 {actionError && <p className="error-text">{actionError}</p>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { assignTruck, createShipment, createTruck, deleteTruck, getShipments, getTrucks, updateTruck } from '../api'
+import { createShipment, createTruck, deleteTruck, getShipments, getTrucks, updateTruck } from '../api'
 import ShipmentForm from '../components/ShipmentForm'
 import ShipmentList from '../components/ShipmentList'
 import TruckManager from '../components/TruckManager'
@@ -118,15 +118,6 @@ function DashboardPage() {
         }
     }
 
-    const handleAssign = async (shipmentId, truckId) => {
-        try {
-            await assignTruck(shipmentId, truckId)
-            await load()
-        } catch (err) {
-            setError(err.message)
-        }
-    }
-
     const handleCreateTruck = async (event) => {
         event.preventDefault()
         const label = newTruckLabel.trim()
@@ -216,8 +207,6 @@ function DashboardPage() {
             <ShipmentList
                 className="dashboard-main"
                 shipments={visibleShipments}
-                trucks={trucks}
-                onAssign={handleAssign}
                 filters={filters}
                 onFiltersChange={setFilters}
             />

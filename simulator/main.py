@@ -1,9 +1,10 @@
 import requests
+import uvicorn
 from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from config import BACKEND_URL, MAX_ROUTE_POINTS
+from config import BACKEND_URL, MAX_ROUTE_POINTS, SIMULATOR_HOST, SIMULATOR_PORT
 from simulation.engine import SimulationEngine
 from simulation.movement import simplify_route_polyline
 from simulation.trucks import SimulatedTruck
@@ -26,6 +27,10 @@ app = FastAPI(title='Logistics Simulator Service')
 @app.get('/health')
 def health():
     return {'status': 'ok', 'backend': BACKEND_URL}
+
+
+if __name__ == '__main__':
+    uvicorn.run('main:app', host=SIMULATOR_HOST, port=SIMULATOR_PORT, reload=True)
 
 
 @app.get('/simulate/state')

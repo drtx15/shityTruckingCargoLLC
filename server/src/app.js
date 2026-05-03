@@ -12,7 +12,7 @@ function buildApp() {
     const app = fastify({ logger: true })
 
     app.register(require('@fastify/cors'), {
-        origin: config.corsOrigin
+        origin: true
     })
 
     app.register(prismaPlugin)

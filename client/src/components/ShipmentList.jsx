@@ -40,8 +40,6 @@ function formatRelativeTime(value) {
 function ShipmentList({
     className = '',
     shipments,
-    trucks,
-    onAssign,
     filters,
     onFiltersChange,
 }) {
@@ -99,12 +97,6 @@ function ShipmentList({
                 )}
             </div>
 
-            {!trucks.length && (
-                <div className="empty-state compact">
-                    <h3>No trucks in database.</h3>
-                </div>
-            )}
-
             {!shipments.length ? (
                 <div className="empty-state">
                     <h3>No shipments match the current filters.</h3>
@@ -158,24 +150,6 @@ function ShipmentList({
                                 </div>
 
                                 <div className="shipment-actions">
-                                    <select
-                                        defaultValue=""
-                                        onChange={(event) => {
-                                            const value = Number(event.target.value)
-                                            if (value) {
-                                                onAssign(shipment.id, value)
-                                                event.target.value = ''
-                                            }
-                                        }}
-                                        disabled={shipment.status === 'ARRIVED' || !trucks.length}
-                                    >
-                                        <option value="">Assign truck</option>
-                                        {trucks.map((truck) => (
-                                            <option key={truck.id} value={truck.id}>
-                                                {truck.label} ({truck.status})
-                                            </option>
-                                        ))}
-                                    </select>
                                     <IconLink to={`/shipments/${shipment.id}`} icon={ArrowRightIcon} label={`Open shipment ${shipment.id}`} />
                                 </div>
                             </article>

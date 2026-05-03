@@ -1,8 +1,7 @@
 const {
     assignTruckToShipment,
     getTrackingByShipmentId,
-    setShipmentPaused,
-    updateShipmentDestination
+    setShipmentPaused
 } = require('../services/shipment-service')
 const { startSimulation } = require('../services/simulator-service')
 const { searchLocations } = require('../services/geocoding-service')
@@ -180,33 +179,7 @@ async function shipmentRoutes(app) {
         }
     })
 
-    app.patch('/shipments/:id/destination', async (request, reply) => {
-        const shipmentId = Number(request.params.id)
 
-        let routePlan
-
-        try {
-            routePlan = await planShipmentRoute({
-                originLat: request.body?.originLat,
-                originLng: request.body?.originLng,
-                originLabel: request.body?.originLabel,
-                destination: request.body?.destination,
-                destinationLat: request.body?.destinationLat,
-                destinationLng: request.body?.destinationLng,
-                destinationLabel: request.body?.destinationLabel
-            })
-        } catch (error) {
-            return reply.code(400).send({ message: error.message })
-        }
-
-        try {
-            const shipment = await updateShipmentDestination(app, shipmentId, { routePlan })
-            return shipment
-        } catch (error) {
-            const statusCode = error.message.includes('not found') ? 404 : 400
-            return reply.code(statusCode).send({ message: error.message })
-        }
-    })
 
     app.post('/shipments/:id/pause', async (request, reply) => {
         const shipmentId = Number(request.params.id)

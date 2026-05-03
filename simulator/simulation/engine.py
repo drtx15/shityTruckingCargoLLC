@@ -49,9 +49,9 @@ class SimulationEngine:
         truck.progress = 0.0
 
         # Profile per truck to avoid uniform convoy-like behavior.
-        truck.cruise_speed_kph = random.uniform(58.0, 92.0)
-        truck.accel_kph_per_s = random.uniform(6.0, 14.0)
-        truck.decel_kph_per_s = random.uniform(8.0, 20.0)
+        truck.cruise_speed_kph = random.uniform(78.0, 120.0)
+        truck.accel_kph_per_s = random.uniform(12.0, 20.0)
+        truck.decel_kph_per_s = random.uniform(10.0, 30.0)
         truck.next_location_emit_ts = 0.0
         truck.location_emit_interval_s = LOCATION_EMIT_INTERVAL_SECONDS
 
@@ -118,10 +118,9 @@ class SimulationEngine:
                     previous = {'lat': truck.current_lat or clean_lat, 'lng': truck.current_lng or clean_lng}
                     current = {'lat': clean_lat, 'lng': clean_lng}
                     truck.heading_deg = heading_degrees(previous, current)
-                    noisy_lat, noisy_lng, accuracy = self._add_gps_noise(clean_lat, clean_lng, zone)
-                    truck.current_lat = noisy_lat
-                    truck.current_lng = noisy_lng
-                    truck.gps_accuracy_m = accuracy
+                    truck.current_lat = clean_lat
+                    truck.current_lng = clean_lng
+                    truck.gps_accuracy_m = 1.0
 
                     now = time.time()
                     should_emit_location = now >= truck.next_location_emit_ts
@@ -163,12 +162,12 @@ class SimulationEngine:
             speed *= max(0.22, remaining / 0.18)
 
         if turn_angle > 35.0:
-            speed *= 0.55
-        elif turn_angle > 18.0:
             speed *= 0.75
+        elif turn_angle > 18.0:
+            speed *= 0.85
 
         if zone == 'urban':
-            speed *= random.uniform(0.55, 0.82)
+            speed *= random.uniform(0.70, 0.95)
         elif zone == 'highway':
             speed *= random.uniform(0.98, 1.12)
         else:
@@ -194,21 +193,6 @@ class SimulationEngine:
         if target >= current:
             return min(target, current + accel_per_s * dt_seconds)
         return max(target, current - decel_per_s * dt_seconds)
-
-    def _add_gps_noise(self, lat: float, lng: float, zone: str):
-        jitter = random.uniform(0.0001, 0.0003)
-        if zone == 'highway':
-            jitter *= 0.7
-            accuracy = random.uniform(4.0, 7.0)
-        elif zone == 'urban':
-            jitter *= 1.2
-            accuracy = random.uniform(6.0, 12.0)
-        else:
-            accuracy = random.uniform(5.0, 9.0)
-
-        noisy_lat = lat + random.uniform(-jitter, jitter)
-        noisy_lng = lng + random.uniform(-jitter, jitter)
-        return noisy_lat, noisy_lng, round(accuracy, 2)
 
     def _emit_payload(self, truck: SimulatedTruck, event_type: str, reason: str | None = None):
         payload = {

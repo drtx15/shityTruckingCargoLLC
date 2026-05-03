@@ -170,41 +170,6 @@ async function recalculateShipmentEta(prisma, shipment) {
     }
 }
 
-async function updateShipmentDestination(app, shipmentId, destinationPayload) {
-    const { prisma } = app
-    const shipment = await prisma.shipment.findUnique({
-        where: { id: shipmentId }
-    })
-
-    if (!shipment) {
-        throw new Error('Shipment not found')
-    }
-
-    if (shipment.status === ShipmentStatus.ARRIVED) {
-        throw new Error('Delivered shipments cannot be rerouted')
-    }
-
-    const routePlan = destinationPayload.routePlan
-    const updatedEta = await recalculateShipmentEta(prisma, {
-        ...shipment,
-        destinationLat: routePlan.destinationLat,
-        destinationLng: routePlan.destinationLng,
-        assignedTruckId: shipment.assignedTruckId
-    })
-
-    return prisma.shipment.update({
-        where: { id: shipment.id },
-        data: {
-            destinationLat: routePlan.destinationLat,
-            destinationLng: routePlan.destinationLng,
-            destinationLabel: routePlan.destinationLabel,
-            routePolyline: routePlan.routePolyline,
-            etaMinutes: updatedEta.etaMinutes,
-            estimatedAt: updatedEta.estimatedAt
-        }
-    })
-}
-
 async function setShipmentPaused(app, shipmentId, paused) {
     const { prisma } = app
     const shipment = await prisma.shipment.findUnique({ where: { id: shipmentId } })
@@ -385,7 +350,6 @@ module.exports = {
     assignTruckToShipment,
     processLocationUpdate,
     getTrackingByShipmentId,
-    updateShipmentDestination,
     setShipmentPaused,
     recalculateShipmentEta
 }
