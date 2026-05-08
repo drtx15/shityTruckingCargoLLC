@@ -19,6 +19,7 @@ function toPublicTrackingPayload(tracking) {
         priority: tracking.priority,
         etaMinutes: tracking.etaMinutes,
         estimatedAt: tracking.estimatedAt,
+        routeRemainingKm: tracking.routeRemainingKm,
         originLabel: tracking.originLabel,
         destinationLabel: tracking.destinationLabel,
         route: tracking.route,

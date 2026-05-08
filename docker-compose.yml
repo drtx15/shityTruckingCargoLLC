@@ -95,7 +95,7 @@ services:
     build: ./simulator
     environment:
       BACKEND_URL: http://backend-a:3000
-      MAX_ROUTE_POINTS: 250
+      MAX_ROUTE_POINTS: 0
       LOCATION_EMIT_INTERVAL_SECONDS: 1
     depends_on:
       backend-a:

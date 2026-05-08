@@ -1,23 +1,107 @@
 :root {
-  font-family: 'Trebuchet MS', 'Gill Sans', 'Segoe UI', sans-serif;
-  color: #0a2f3a;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #f3f6f8;
+  --bg-soft: #e8eef1;
+  --surface: #ffffff;
+  --surface-raised: #fbfdfe;
+  --surface-muted: #f5f8fa;
+  --text: #17252c;
+  --text-strong: #0b171d;
+  --muted: #5f727c;
+  --muted-strong: #40545f;
+  --border: rgba(30, 52, 62, 0.13);
+  --border-strong: rgba(30, 52, 62, 0.22);
+  --accent: #0f6f7b;
+  --accent-strong: #0a5661;
+  --accent-soft: rgba(15, 111, 123, 0.1);
+  --accent-softer: rgba(15, 111, 123, 0.06);
+  --success: #0e7b56;
+  --success-soft: rgba(14, 123, 86, 0.12);
+  --warning: #9b6417;
+  --warning-soft: rgba(155, 100, 23, 0.14);
+  --danger: #b93434;
+  --danger-soft: rgba(185, 52, 52, 0.12);
+  --info: #2563a7;
+  --info-soft: rgba(37, 99, 167, 0.12);
+  --shadow-sm: 0 1px 2px rgba(13, 27, 34, 0.06);
+  --shadow-md: 0 14px 34px rgba(13, 27, 34, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --sidebar-width: 248px;
+
+  font-family: var(--font-sans);
+  color: var(--text);
   background:
-    radial-gradient(circle at 12% 8%, rgba(230, 246, 248, 0.95), transparent 34%),
-    radial-gradient(circle at 87% 22%, rgba(255, 216, 146, 0.28), transparent 28%),
-    linear-gradient(180deg, #f6fbfc 0%, #e5f1f4 100%);
+    radial-gradient(circle at 20% 0%, rgba(15, 111, 123, 0.08), transparent 30%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+  font-size: 16px;
   line-height: 1.45;
   font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0d1216;
+  --bg-soft: #111a20;
+  --surface: #151d23;
+  --surface-raised: #1a252c;
+  --surface-muted: #101820;
+  --text: #dbe7eb;
+  --text-strong: #f5fafc;
+  --muted: #99abb3;
+  --muted-strong: #b8c7ce;
+  --border: rgba(211, 230, 237, 0.13);
+  --border-strong: rgba(211, 230, 237, 0.24);
+  --accent: #4fb2bd;
+  --accent-strong: #7bcbd3;
+  --accent-soft: rgba(79, 178, 189, 0.15);
+  --accent-softer: rgba(79, 178, 189, 0.08);
+  --success: #52c596;
+  --success-soft: rgba(82, 197, 150, 0.16);
+  --warning: #e4a949;
+  --warning-soft: rgba(228, 169, 73, 0.16);
+  --danger: #f27474;
+  --danger-soft: rgba(242, 116, 116, 0.16);
+  --info: #87b9ff;
+  --info-soft: rgba(135, 185, 255, 0.16);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.28);
+
+  background:
+    radial-gradient(circle at 18% 0%, rgba(79, 178, 189, 0.12), transparent 32%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  color: inherit;
+  color: var(--text);
   background: transparent;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
 }
 
 h1,

@@ -1,3 +1,4 @@
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthProvider } from './AuthContext'
 import { getRoleHome, useAuth } from './auth'
@@ -20,6 +21,9 @@ import ShippersPage from './pages/ShippersPage'
 import TrucksPage from './pages/TrucksPage'
 import WebhooksPage from './pages/WebhooksPage'
 import './App.css'
+
+const ThemeContext = createContext(null)
+const themeStorageKey = 'transit-grid-theme'
 
 const roleLabels = {
   CUSTOMER: 'Customer workspace',
@@ -61,6 +65,62 @@ const roleLinks = {
   ],
 }
 
+function getInitialTheme() {
+  if (typeof window === 'undefined') {
+    return 'light'
+  }
+
+  const storedTheme = window.localStorage.getItem(themeStorageKey)
+  if (storedTheme === 'light' || storedTheme === 'dark') {
+    return storedTheme
+  }
+
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(getInitialTheme)
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.documentElement.style.colorScheme = theme
+    window.localStorage.setItem(themeStorageKey, theme)
+  }, [theme])
+
+  const value = useMemo(() => ({ setTheme, theme }), [theme])
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+}
+
+function useTheme() {
+  const value = useContext(ThemeContext)
+  if (!value) {
+    throw new Error('useTheme must be used inside ThemeProvider')
+  }
+  return value
+}
+
+function ThemeToggle() {
+  const { setTheme, theme } = useTheme()
+
+  return (
+    <div className="theme-toggle" role="group" aria-label="Color theme">
+      {['light', 'dark'].map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          className={theme === mode ? 'is-active' : ''}
+          aria-pressed={theme === mode}
+          onClick={() => setTheme(mode)}
+        >
+          <span className={`theme-toggle-icon theme-toggle-icon--${mode}`} aria-hidden="true" />
+          <span>{mode === 'light' ? 'Light' : 'Dark'}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function RoleRedirect() {
   const { loading, user } = useAuth()
 
@@ -100,31 +160,59 @@ function RoleLayout({ roles }) {
       <div className="workspace-shell">
         <aside className="workspace-sidebar">
           <div className="workspace-brand">
-            <p className="eyebrow">Transit Grid</p>
-            <h1>{roleLabels[primaryRole] || 'Workspace'}</h1>
-            <p>{user?.email}</p>
+            <div className="brand-mark" aria-hidden="true">TG</div>
+            <div>
+              <p className="eyebrow">Transit Grid</p>
+              <h1>{roleLabels[primaryRole] || 'Workspace'}</h1>
+              <p>{user?.email}</p>
+            </div>
           </div>
           <nav className="workspace-nav" aria-label={`${roleLabels[primaryRole]} navigation`}>
             {links.map(([label, to]) => (
               <NavLink key={to} to={to}>{label}</NavLink>
             ))}
           </nav>
-          <button
-            type="button"
-            className="secondary-button workspace-signout"
-            onClick={() => {
-              signOut()
-              navigate('/login', { replace: true })
-            }}
-          >
-            Sign out
-          </button>
+          <div className="workspace-sidebar-footer">
+            <ThemeToggle />
+            <button
+              type="button"
+              className="secondary-button workspace-signout"
+              onClick={() => {
+                signOut()
+                navigate('/login', { replace: true })
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         </aside>
         <main className="workspace-main">
+          <header className="workspace-topbar">
+            <div>
+              <p className="eyebrow">Workspace</p>
+              <strong>{roleLabels[primaryRole] || 'Transit Grid'}</strong>
+            </div>
+            <span>{user?.email}</span>
+          </header>
           <Outlet />
         </main>
       </div>
     </ProtectedRoute>
+  )
+}
+
+function PublicFrame({ children }) {
+  return (
+    <main className="public-page">
+      <header className="public-header">
+        <div>
+          <p className="eyebrow">Transit Grid</p>
+          <h1>Live shipment tracking</h1>
+        </div>
+        <ThemeToggle />
+      </header>
+      {children}
+    </main>
   )
 }
 
@@ -133,8 +221,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/track/:trackingCode" element={<PublicTrackingPage />} />
+      <Route path="/login" element={<LoginPage themeToggle={<ThemeToggle />} />} />
+      <Route path="/track/:trackingCode" element={<PublicFrame><PublicTrackingPage /></PublicFrame>} />
 
       <Route path="/customer" element={<RoleLayout roles={['CUSTOMER']} />}>
         <Route index element={<Navigate to="/customer/orders" replace />} />
@@ -211,9 +299,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getShipments, getTracking } from '../api'
+import { getShipments, getTracking, openTrackingSocket } from '../api'
 import TrackingMap from '../map/TrackingMap'
 
 function DispatcherMapPage() {
@@ -23,7 +23,41 @@ function DispatcherMapPage() {
             return
         }
 
-        getTracking(selectedId).then(setTracking).catch((err) => setError(err.message))
+        let active = true
+        const load = () => {
+            getTracking(selectedId)
+                .then((data) => {
+                    if (active) {
+                        setTracking(data)
+                        setError('')
+                    }
+                })
+                .catch((err) => active && setError(err.message))
+        }
+
+        load()
+        const timer = setInterval(load, 1000)
+        const socket = openTrackingSocket({
+            shipmentId: selectedId,
+            onMessage: (event) => {
+                if (!active) {
+                    return
+                }
+                if (event.type === 'error') {
+                    setError(event.message || 'Live tracking unavailable')
+                    return
+                }
+                setTracking(event.payload)
+                setError('')
+            },
+            onError: (err) => active && setError(err.message)
+        })
+
+        return () => {
+            active = false
+            clearInterval(timer)
+            socket.close()
+        }
     }, [selectedId])
 
     return (

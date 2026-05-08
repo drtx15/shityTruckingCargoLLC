@@ -11,14 +11,28 @@ function PublicTrackingPage() {
     const [error, setError] = useState('')
 
     useEffect(() => {
+        let active = true
         let socket
-        getPublicTracking(trackingCode)
-            .then(setTracking)
-            .catch((err) => setError(err.message))
+        const load = () => {
+            getPublicTracking(trackingCode)
+                .then((data) => {
+                    if (active) {
+                        setTracking(data)
+                        setError('')
+                    }
+                })
+                .catch((err) => active && setError(err.message))
+        }
+
+        load()
+        const timer = setInterval(load, 1000)
 
         socket = openTrackingSocket({
             trackingCode,
             onMessage: (event) => {
+                if (!active) {
+                    return
+                }
                 if (event.type === 'error') {
                     setLiveState(event.message || 'Live tracking unavailable')
                     return
@@ -26,10 +40,14 @@ function PublicTrackingPage() {
                 setLiveState('Live')
                 setTracking(event.payload)
             },
-            onError: (err) => setLiveState(err.message)
+            onError: (err) => active && setLiveState(err.message)
         })
 
-        return () => socket?.close()
+        return () => {
+            active = false
+            clearInterval(timer)
+            socket?.close()
+        }
     }, [trackingCode])
 
     if (error) return <p className="error-text">{error}</p>

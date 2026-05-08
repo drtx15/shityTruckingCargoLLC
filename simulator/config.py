@@ -23,7 +23,7 @@ def _read_int(name: str, fallback: int) -> int:
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:3000').rstrip('/')
 SIMULATOR_HOST = os.getenv('SIMULATOR_HOST', '0.0.0.0')
 SIMULATOR_PORT = _read_int('SIMULATOR_PORT', 8001)
-MAX_ROUTE_POINTS = _read_int('MAX_ROUTE_POINTS', 250)
+MAX_ROUTE_POINTS = _read_int('MAX_ROUTE_POINTS', 0)
 LOOP_TICK_SECONDS = _read_float('LOOP_TICK_SECONDS', 1.0)
 LOCATION_EMIT_INTERVAL_SECONDS = _read_float('LOCATION_EMIT_INTERVAL_SECONDS', 1.0)
 TRAFFIC_STOP_PROBABILITY = _read_float('TRAFFIC_STOP_PROBABILITY', 0.018)

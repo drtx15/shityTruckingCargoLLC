@@ -6,6 +6,38 @@ function toNumber(value) {
 }
 
 async function internalRoutes(app) {
+    app.get('/shipments/:id/route', async (request, reply) => {
+        const shipmentId = Number(request.params.id)
+        const shipment = await app.prisma.shipment.findUnique({
+            where: { id: shipmentId },
+            select: {
+                id: true,
+                routePolyline: true
+            }
+        })
+
+        if (!shipment) {
+            return reply.code(404).send({ message: 'Shipment not found' })
+        }
+
+        if (!Array.isArray(shipment.routePolyline)) {
+            return reply.code(404).send({ message: 'Route not available' })
+        }
+
+        return shipment.routePolyline
+            .map((point) => {
+                const lat = Number(point?.lat)
+                const lng = Number(point?.lng)
+
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                    return null
+                }
+
+                return { lat, lng }
+            })
+            .filter(Boolean)
+    })
+
     app.post('/location-update', async (request, reply) => {
         const payload = request.body || {}
 

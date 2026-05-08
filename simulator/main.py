@@ -41,7 +41,7 @@ def simulation_state():
 @app.post('/simulate/start')
 def start_simulation(request: StartSimulationRequest):
     route_response = requests.get(
-        f'{BACKEND_URL}/shipments/{request.shipmentId}/route',
+        f'{BACKEND_URL}/internal/shipments/{request.shipmentId}/route',
         timeout=4,
     )
 
@@ -64,7 +64,7 @@ def start_simulation_many(request: StartSimulationBatchRequest):
 
     for simulation in request.simulations:
         route_response = requests.get(
-            f'{BACKEND_URL}/shipments/{simulation.shipmentId}/route',
+            f'{BACKEND_URL}/internal/shipments/{simulation.shipmentId}/route',
             timeout=4,
         )
 

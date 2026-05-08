@@ -1,11 +1,14 @@
 const { CheckpointType, ShipmentStatus, TruckStatus } = require('@prisma/client')
-const { haversineKm, estimateEtaMinutes } = require('../utils/geo')
+const { haversineKm, estimateEtaMinutes, remainingRouteDistanceKm } = require('../utils/geo')
 const { emitShipmentWebhook } = require('./webhook-service')
 const { etaBreachesSla, getStoppedGraceMinutes } = require('./sla-service')
 const { publishTrackingEvent, readTrackingSnapshot, writeTrackingSnapshot } = require('./tracking-snapshot-service')
 
 const ARRIVAL_THRESHOLD_KM = 0.2
 const IN_TRANSIT_CHECKPOINT_INTERVAL_MS = 45 * 1000
+const ETA_MIN_MOVING_SPEED_KPH = 90
+const ETA_MAX_SPEED_KPH = 180
+const ETA_RECENT_SAMPLE_SIZE = 20
 const config = require('../config')
 
 function mapTruckStatus(state, speed) {
@@ -34,6 +37,37 @@ function shouldMoveShipmentToTransit(currentStatus, eventType, state, speed) {
     }
 
     return state === 'MOVING' || speed > 0
+}
+
+async function estimateOperatingSpeedKph(prisma, truckId, currentSpeed) {
+    const speed = Number(currentSpeed)
+
+    if (!Number.isFinite(speed) || speed <= 1) {
+        return null
+    }
+
+    const recentTelemetry = await prisma.telemetryEvent.findMany({
+        where: {
+            truckId,
+            speed: { gt: 1 }
+        },
+        orderBy: { eventTimestamp: 'desc' },
+        take: ETA_RECENT_SAMPLE_SIZE,
+        select: { speed: true }
+    })
+
+    const samples = recentTelemetry
+        .map((event) => Number(event.speed))
+        .filter((value) => Number.isFinite(value) && value > 1)
+
+    const averageSpeed = samples.length
+        ? samples.reduce((sum, value) => sum + value, 0) / samples.length
+        : speed
+
+    return Math.min(
+        ETA_MAX_SPEED_KPH,
+        Math.max(ETA_MIN_MOVING_SPEED_KPH, averageSpeed, speed)
+    )
 }
 
 async function emitShipmentStatus(app, shipment, previousStatus) {
@@ -173,8 +207,12 @@ async function recalculateShipmentEta(prisma, shipment) {
         }
     }
 
-    const speed = truck.currentSpeed && truck.currentSpeed > 0 ? truck.currentSpeed : 45
-    const distanceToDestination = haversineKm(
+    const speed = await estimateOperatingSpeedKph(prisma, truck.id, truck.currentSpeed)
+    const distanceToDestination = remainingRouteDistanceKm(
+        shipment.routePolyline,
+        truck.currentLat,
+        truck.currentLng
+    ) ?? haversineKm(
         truck.currentLat,
         truck.currentLng,
         shipment.destinationLat,
@@ -275,13 +313,18 @@ async function processLocationUpdate(app, payload) {
         return { acknowledged: true, shipmentUpdated: false, paused: true }
     }
 
-    const distanceToDestination = haversineKm(
+    const distanceToDestination = remainingRouteDistanceKm(
+        shipment.routePolyline,
+        lat,
+        lng
+    ) ?? haversineKm(
         lat,
         lng,
         shipment.destinationLat,
         shipment.destinationLng
     )
-    const etaMinutes = estimateEtaMinutes(distanceToDestination, speed)
+    const etaSpeedKph = await estimateOperatingSpeedKph(app.prisma, truck.id, speed)
+    const etaMinutes = estimateEtaMinutes(distanceToDestination, etaSpeedKph)
 
     let nextStatus = shipment.status
     const previousStatus = shipment.status
@@ -348,7 +391,7 @@ async function processLocationUpdate(app, payload) {
                 previousEtaMinutes: shipment.etaMinutes,
                 newEtaMinutes: updatedShipment.etaMinutes,
                 remainingDistanceKm: distanceToDestination,
-                speedKph: speed,
+                speedKph: etaSpeedKph || speed,
                 reason: previousStatus !== updatedShipment.status
                     ? `status:${previousStatus}->${updatedShipment.status}`
                     : 'telemetry.recalculated'
@@ -477,6 +520,22 @@ async function getTrackingByShipmentId(appOrPrisma, shipmentId, options = {}) {
         return shipment
     }
 
+    const routeRemainingKm = shipment.assignedTruck?.currentLat !== null &&
+        shipment.assignedTruck?.currentLat !== undefined &&
+        shipment.assignedTruck?.currentLng !== null &&
+        shipment.assignedTruck?.currentLng !== undefined
+        ? remainingRouteDistanceKm(
+            shipment.routePolyline,
+            shipment.assignedTruck.currentLat,
+            shipment.assignedTruck.currentLng
+        ) ?? haversineKm(
+            shipment.assignedTruck.currentLat,
+            shipment.assignedTruck.currentLng,
+            shipment.destinationLat,
+            shipment.destinationLng
+        )
+        : null
+
     const tracking = {
         shipmentId: shipment.id,
         trackingCode: shipment.trackingCode,
@@ -492,6 +551,7 @@ async function getTrackingByShipmentId(appOrPrisma, shipmentId, options = {}) {
         isPaused: shipment.isPaused,
         etaMinutes: shipment.etaMinutes,
         estimatedAt: shipment.estimatedAt,
+        routeRemainingKm,
         createdAt: shipment.createdAt,
         updatedAt: shipment.updatedAt,
         originLabel: shipment.originLabel,

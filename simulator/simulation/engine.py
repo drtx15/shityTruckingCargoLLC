@@ -43,15 +43,14 @@ class SimulationEngine:
         truck.route_segments = route_segments
         truck.current_lat = start_lat
         truck.current_lng = start_lng
-        truck.current_speed_kph = 0.0
+        truck.current_speed_kph = random.uniform(85.0, 115.0)
         truck.state = MOVING
         truck.active = True
         truck.progress = 0.0
 
-        # Profile per truck to avoid uniform convoy-like behavior.
-        truck.cruise_speed_kph = random.uniform(78.0, 120.0)
-        truck.accel_kph_per_s = random.uniform(12.0, 20.0)
-        truck.decel_kph_per_s = random.uniform(10.0, 30.0)
+        truck.cruise_speed_kph = random.uniform(150.0, 220.0)
+        truck.accel_kph_per_s = random.uniform(35.0, 70.0)
+        truck.decel_kph_per_s = random.uniform(18.0, 35.0)
         truck.next_location_emit_ts = 0.0
         truck.location_emit_interval_s = LOCATION_EMIT_INTERVAL_SECONDS
 
@@ -99,7 +98,7 @@ class SimulationEngine:
                 progress_step = self._progress_step(truck, truck.current_speed_kph, dt_seconds=LOOP_TICK_SECONDS)
                 progress_per_substep = progress_step / substeps if substeps > 0 else progress_step
 
-            substep_delay = random.uniform(0.25, 0.5)
+            substep_delay = LOOP_TICK_SECONDS / substeps
             for _ in range(substeps):
                 with self._lock:
                     mapped = self.trucks.get(truck.truck_id)
@@ -120,7 +119,7 @@ class SimulationEngine:
                     truck.heading_deg = heading_degrees(previous, current)
                     truck.current_lat = clean_lat
                     truck.current_lng = clean_lng
-                    truck.gps_accuracy_m = 1.0
+                    truck.gps_accuracy_m = 0.0
 
                     now = time.time()
                     should_emit_location = now >= truck.next_location_emit_ts
@@ -173,7 +172,7 @@ class SimulationEngine:
         else:
             speed *= random.uniform(0.75, 0.98)
 
-        return max(0.0, min(120.0, speed))
+        return max(0.0, min(180.0, speed))
 
     def _progress_step(self, truck: SimulatedTruck, speed_kph: float, dt_seconds: float):
         if truck.route_distance_km <= 0:

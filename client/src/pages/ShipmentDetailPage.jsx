@@ -223,7 +223,7 @@ function ShipmentDetailPage() {
 
     useEffect(() => {
         load()
-        const timer = setInterval(load, 15000)
+        const timer = setInterval(load, 1000)
         const socket = openTrackingSocket({
             shipmentId: id,
             onMessage: (event) => {
@@ -254,9 +254,11 @@ function ShipmentDetailPage() {
     const truckPosition = tracking?.truck?.currentLat !== null && tracking?.truck?.currentLat !== undefined && tracking?.truck?.currentLng !== null && tracking?.truck?.currentLng !== undefined
         ? [tracking.truck.currentLat, tracking.truck.currentLng]
         : null
-    const distanceRemainingKm = truckPosition
-        ? haversineKm(truckPosition[0], truckPosition[1], tracking.route.destination.lat, tracking.route.destination.lng)
-        : tracking?.truck ? null : null
+    const distanceRemainingKm = tracking?.routeRemainingKm !== null && tracking?.routeRemainingKm !== undefined
+        ? tracking.routeRemainingKm
+        : truckPosition
+            ? haversineKm(truckPosition[0], truckPosition[1], tracking.route.destination.lat, tracking.route.destination.lng)
+            : null
     const remainingEta = tracking?.etaMinutes !== null && tracking?.etaMinutes !== undefined
         ? formatCountdown(tracking.etaMinutes)
         : 'Pending'

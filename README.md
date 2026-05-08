@@ -65,8 +65,9 @@ Backend uses `server/.env.example` as the reference. Important variables:
 
 Frontend uses:
 
-- `VITE_API_URL`: REST API base URL.
-- `VITE_WS_URL`: WebSocket base URL.
+- `VITE_API_URL`: REST API base URL. Defaults to `/api`, which is served by the Docker gateway.
+- `VITE_WS_URL`: WebSocket base URL. Leave empty for same-origin `/ws` during local Vite development.
+- `VITE_DEV_PROXY_TARGET`: Vite dev proxy target for `/api` and `/ws`; defaults to `http://127.0.0.1:8080`.
 
 ## Main Features
 

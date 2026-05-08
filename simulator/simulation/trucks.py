@@ -17,7 +17,7 @@ class SimulatedTruck:
     current_lat: float | None = None
     current_lng: float | None = None
     heading_deg: float = 0.0
-    gps_accuracy_m: float = 5.0
+    gps_accuracy_m: float = 0.0
     state: str = IDLE
     route_distance_km: float = 0.0
     route_segments: List[dict] | None = None

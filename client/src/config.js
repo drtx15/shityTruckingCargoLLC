@@ -1,15 +1,15 @@
-const defaultApiBaseUrl =
-    typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:3000`
-        : 'http://localhost:3000'
+const defaultApiBaseUrl = '/api'
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || defaultApiBaseUrl
 
-const apiUrl = new URL(
-    API_BASE_URL,
-    typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
-)
-apiUrl.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:'
-apiUrl.pathname = ''
+function getDefaultWsBaseUrl() {
+    if (typeof window === 'undefined') {
+        return 'ws://localhost:8080'
+    }
 
-export const WS_BASE_URL = import.meta.env.VITE_WS_URL || apiUrl.toString().replace(/\/$/, '')
+    const wsUrl = new URL(window.location.origin)
+    wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
+    return wsUrl.toString().replace(/\/$/, '')
+}
+
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL || getDefaultWsBaseUrl()

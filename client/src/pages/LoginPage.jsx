@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { getRoleHome, useAuth } from '../auth'
 import { requestLoginCode, verifyLoginCode } from '../api'
 
-function LoginPage() {
+function LoginPage({ themeToggle }) {
     const navigate = useNavigate()
     const { signIn, user } = useAuth()
     const [email, setEmail] = useState('customer@drtx.tech')
@@ -53,9 +53,12 @@ function LoginPage() {
     return (
         <main className="login-page">
             <section className="login-panel panel">
-                <div>
-                    <p className="eyebrow">Transit Grid</p>
-                    <h1>Sign in to your workspace</h1>
+                <div className="login-panel-header">
+                    <div>
+                        <p className="eyebrow">Transit Grid</p>
+                        <h1>Sign in to your workspace</h1>
+                    </div>
+                    {themeToggle}
                 </div>
 
                 <form className="form-grid" onSubmit={codeRequested ? verifyCode : requestCode}>
