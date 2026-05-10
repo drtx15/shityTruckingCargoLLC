@@ -9,6 +9,14 @@ const IN_TRANSIT_CHECKPOINT_INTERVAL_MS = 45 * 1000
 const ETA_MIN_MOVING_SPEED_KPH = 90
 const ETA_MAX_SPEED_KPH = 180
 const ETA_RECENT_SAMPLE_SIZE = 20
+const HOS_EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000
+const HOS_BREAK_RESET_MINUTES = 30
+const HOS_DAILY_REST_MINUTES = 10 * 60
+const HOS_RESTART_MINUTES = 34 * 60
+const HOS_DRIVING_LIMIT_MINUTES = 11 * 60
+const HOS_SHIFT_LIMIT_MINUTES = 14 * 60
+const HOS_BREAK_LIMIT_MINUTES = 8 * 60
+const HOS_WEEKLY_LIMIT_MINUTES = 70 * 60
 const config = require('../config')
 
 function mapTruckStatus(state, speed) {
@@ -68,6 +76,148 @@ async function estimateOperatingSpeedKph(prisma, truckId, currentSpeed) {
         ETA_MAX_SPEED_KPH,
         Math.max(ETA_MIN_MOVING_SPEED_KPH, averageSpeed, speed)
     )
+}
+
+function minutesBetween(left, right) {
+    return Math.max(0, (new Date(right).getTime() - new Date(left).getTime()) / 60000)
+}
+
+async function getHosState(prisma, truckId, now = new Date()) {
+    const windowStart = new Date(now.getTime() - HOS_EIGHT_DAYS_MS)
+    const events = await prisma.telemetryEvent.findMany({
+        where: {
+            truckId,
+            eventTimestamp: { gte: windowStart }
+        },
+        orderBy: { eventTimestamp: 'asc' },
+        select: {
+            speed: true,
+            eventTimestamp: true
+        }
+    })
+
+    let rollingOnDutyMinutes = 0
+    let drivingSinceDailyRestMinutes = 0
+    let continuousDrivingMinutes = 0
+    let shiftStartTime = null
+    let previousDrivingEvent = null
+
+    for (const event of events) {
+        const speed = Number(event.speed)
+        if (!Number.isFinite(speed) || speed <= 1) {
+            continue
+        }
+
+        const eventTime = new Date(event.eventTimestamp)
+        if (!previousDrivingEvent) {
+            shiftStartTime = eventTime
+            previousDrivingEvent = eventTime
+            continue
+        }
+
+        const gapMinutes = minutesBetween(previousDrivingEvent, eventTime)
+
+        if (gapMinutes >= HOS_RESTART_MINUTES) {
+            rollingOnDutyMinutes = 0
+            drivingSinceDailyRestMinutes = 0
+            continuousDrivingMinutes = 0
+            shiftStartTime = eventTime
+        } else if (gapMinutes >= HOS_DAILY_REST_MINUTES) {
+            drivingSinceDailyRestMinutes = 0
+            continuousDrivingMinutes = 0
+            shiftStartTime = eventTime
+        } else if (gapMinutes >= HOS_BREAK_RESET_MINUTES) {
+            continuousDrivingMinutes = 0
+        } else {
+            rollingOnDutyMinutes += gapMinutes
+            drivingSinceDailyRestMinutes += gapMinutes
+            continuousDrivingMinutes += gapMinutes
+        }
+
+        previousDrivingEvent = eventTime
+    }
+
+    return {
+        rollingOnDutyMinutes,
+        drivingSinceDailyRestMinutes,
+        continuousDrivingMinutes,
+        shiftElapsedMinutes: shiftStartTime ? minutesBetween(shiftStartTime, now) : 0
+    }
+}
+
+function applyHosToEtaMinutes(baseDriveMinutes, hosState) {
+    let remainingDriveMinutes = Math.max(0, Number(baseDriveMinutes) || 0)
+    let elapsedMinutes = 0
+    let rollingOnDutyMinutes = hosState.rollingOnDutyMinutes || 0
+    let drivingSinceDailyRestMinutes = hosState.drivingSinceDailyRestMinutes || 0
+    let continuousDrivingMinutes = hosState.continuousDrivingMinutes || 0
+    let shiftElapsedMinutes = hosState.shiftElapsedMinutes || 0
+
+    while (remainingDriveMinutes > 0) {
+        const drivingAvailable = HOS_DRIVING_LIMIT_MINUTES - drivingSinceDailyRestMinutes
+        const shiftAvailable = HOS_SHIFT_LIMIT_MINUTES - shiftElapsedMinutes
+        const breakAvailable = HOS_BREAK_LIMIT_MINUTES - continuousDrivingMinutes
+        const weeklyAvailable = HOS_WEEKLY_LIMIT_MINUTES - rollingOnDutyMinutes
+
+        if (weeklyAvailable <= 0) {
+            elapsedMinutes += HOS_RESTART_MINUTES
+            rollingOnDutyMinutes = 0
+            drivingSinceDailyRestMinutes = 0
+            continuousDrivingMinutes = 0
+            shiftElapsedMinutes = 0
+            continue
+        }
+
+        if (drivingAvailable <= 0 || shiftAvailable <= 0) {
+            elapsedMinutes += HOS_DAILY_REST_MINUTES
+            drivingSinceDailyRestMinutes = 0
+            continuousDrivingMinutes = 0
+            shiftElapsedMinutes = 0
+            continue
+        }
+
+        if (breakAvailable <= 0) {
+            elapsedMinutes += HOS_BREAK_RESET_MINUTES
+            shiftElapsedMinutes += HOS_BREAK_RESET_MINUTES
+            continuousDrivingMinutes = 0
+            continue
+        }
+
+        const driveBlockMinutes = Math.min(
+            remainingDriveMinutes,
+            drivingAvailable,
+            shiftAvailable,
+            breakAvailable,
+            weeklyAvailable
+        )
+
+        if (driveBlockMinutes <= 0) {
+            elapsedMinutes += HOS_DAILY_REST_MINUTES
+            drivingSinceDailyRestMinutes = 0
+            continuousDrivingMinutes = 0
+            shiftElapsedMinutes = 0
+            continue
+        }
+
+        remainingDriveMinutes -= driveBlockMinutes
+        elapsedMinutes += driveBlockMinutes
+        rollingOnDutyMinutes += driveBlockMinutes
+        drivingSinceDailyRestMinutes += driveBlockMinutes
+        continuousDrivingMinutes += driveBlockMinutes
+        shiftElapsedMinutes += driveBlockMinutes
+    }
+
+    return Math.ceil(elapsedMinutes)
+}
+
+async function estimateHosAwareEtaMinutes(prisma, truckId, distanceKm, speedKph) {
+    const baseEtaMinutes = estimateEtaMinutes(distanceKm, speedKph)
+    if (!baseEtaMinutes) {
+        return null
+    }
+
+    const hosState = await getHosState(prisma, truckId)
+    return applyHosToEtaMinutes(baseEtaMinutes, hosState)
 }
 
 async function emitShipmentStatus(app, shipment, previousStatus) {
@@ -219,7 +369,7 @@ async function recalculateShipmentEta(prisma, shipment) {
         shipment.destinationLng
     )
 
-    const etaMinutes = estimateEtaMinutes(distanceToDestination, speed)
+    const etaMinutes = await estimateHosAwareEtaMinutes(prisma, truck.id, distanceToDestination, speed)
     return {
         etaMinutes,
         estimatedAt: etaMinutes ? new Date(Date.now() + etaMinutes * 60 * 1000) : null
@@ -324,7 +474,7 @@ async function processLocationUpdate(app, payload) {
         shipment.destinationLng
     )
     const etaSpeedKph = await estimateOperatingSpeedKph(app.prisma, truck.id, speed)
-    const etaMinutes = estimateEtaMinutes(distanceToDestination, etaSpeedKph)
+    const etaMinutes = await estimateHosAwareEtaMinutes(app.prisma, truck.id, distanceToDestination, etaSpeedKph)
 
     let nextStatus = shipment.status
     const previousStatus = shipment.status
