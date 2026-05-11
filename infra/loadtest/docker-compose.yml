@@ -1,0 +1,302 @@
+name: transit-grid-loadtest
+
+x-api-env: &api-env
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: 3000
+  WORKER_HEALTH_PORT: 3001
+  CORS_ORIGIN: http://localhost:8080
+  JWT_SECRET: local-loadtest-jwt-secret
+  AUTH_FROM_EMAIL: Transit Grid <auth@loadtest.local>
+  INTERNAL_API_KEY: local-loadtest-internal-key
+  TELEMATICS_PROVIDER_API_KEY: local-provider-api-key
+  TELEMATICS_PROVIDER_POLL_INTERVAL_SECONDS: 1
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/transit_grid?schema=public
+  REDIS_URL: redis://:redispass@redis:6379
+  RABBITMQ_URL: amqp://transit:rabbitpass@rabbitmq:5672/transit_grid
+  SIMULATOR_URL: http://simulator:8001
+  PUBLIC_BASE_URL: http://localhost:8080
+  OBJECT_STORAGE_ENDPOINT: http://minio:9000
+  OBJECT_STORAGE_REGION: us-east-1
+  OBJECT_STORAGE_BUCKET: transit-grid-uploads
+  OBJECT_STORAGE_ACCESS_KEY_ID: transitgrid
+  OBJECT_STORAGE_SECRET_ACCESS_KEY: miniosecret
+  OBJECT_STORAGE_PUBLIC_BASE_URL: http://localhost:8080/storage
+  OSRM_BASE_URL: http://osrm-mock:8002
+  NOMINATIM_BASE_URL: http://osrm-mock:8002
+  HEALTH_NOMINATIM_CRITICAL: "false"
+  HEALTH_OSRM_CRITICAL: "false"
+  HEALTH_HISTORY_REDIS_ENABLED: "true"
+  RATE_LIMIT_CAPACITY: 200
+  RATE_LIMIT_REFILL_PER_MINUTE: 200
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lt-postgres
+    cpus: 0.70
+    mem_limit: 1536m
+    environment:
+      POSTGRES_DB: transit_grid
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "15432:5432"
+    volumes:
+      - lt_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d transit_grid"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    container_name: lt-minio
+    cpus: 0.30
+    mem_limit: 512m
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: transitgrid
+      MINIO_ROOT_PASSWORD: miniosecret
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - lt_minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: lt-minio-init
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: transitgrid
+      MINIO_ROOT_PASSWORD: miniosecret
+      MINIO_BUCKET: transit-grid-uploads
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          sleep 1
+        done
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"
+        mc anonymous set download "local/$$MINIO_BUCKET"
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    container_name: lt-redis
+    cpus: 0.25
+    mem_limit: 512m
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "redispass"]
+    environment:
+      REDIS_PASSWORD: redispass
+    ports:
+      - "16379:6379"
+    volumes:
+      - lt_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: lt-rabbitmq
+    cpus: 0.75
+    mem_limit: 1536m
+    environment:
+      RABBITMQ_DEFAULT_USER: transit
+      RABBITMQ_DEFAULT_PASS: rabbitpass
+      RABBITMQ_DEFAULT_VHOST: transit_grid
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - lt_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  osrm-mock:
+    image: python:3.12-slim
+    container_name: lt-osrm-mock
+    cpus: 0.25
+    mem_limit: 128m
+    command: ["python", "/app/osrm_mock.py"]
+    volumes:
+      - ./osrm_mock.py:/app/osrm_mock.py:ro
+    ports:
+      - "18002:8002"
+
+  simulator:
+    build:
+      context: ../../simulator
+    container_name: lt-simulator
+    cpus: 1.0
+    mem_limit: 512m
+    environment:
+      PROVIDER_NAME: Transit Grid Telematics Loadtest
+      PROVIDER_API_KEY: local-provider-api-key
+      MAX_ROUTE_POINTS: 250
+      LOOP_TICK_SECONDS: 1.0
+      LOCATION_EMIT_INTERVAL_SECONDS: 1.0
+    ports:
+      - "18001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: transit-grid-loadtest-server:latest
+    container_name: lt-migrate
+    cpus: 1.0
+    mem_limit: 1024m
+    command: ["npm", "run", "prisma:deploy"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api-1:
+    image: transit-grid-loadtest-server:latest
+    build:
+      context: ../../server
+    container_name: lt-api-1
+    cpus: 1.0
+    mem_limit: 1024m
+    environment: *api-env
+    ports:
+      - "3101:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      simulator:
+        condition: service_healthy
+      osrm-mock:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  api-2:
+    image: transit-grid-loadtest-server:latest
+    container_name: lt-api-2
+    cpus: 1.0
+    mem_limit: 1024m
+    environment: *api-env
+    ports:
+      - "3102:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      simulator:
+        condition: service_healthy
+      osrm-mock:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker-1:
+    image: transit-grid-loadtest-server:latest
+    container_name: lt-worker-1
+    cpus: 1.0
+    mem_limit: 1024m
+    command: ["npm", "run", "worker"]
+    environment: *api-env
+    ports:
+      - "3201:3001"
+    depends_on:
+      api-1:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      simulator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker-2:
+    image: transit-grid-loadtest-server:latest
+    container_name: lt-worker-2
+    cpus: 1.0
+    mem_limit: 1024m
+    command: ["npm", "run", "worker"]
+    environment: *api-env
+    ports:
+      - "3202:3001"
+    depends_on:
+      api-1:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      simulator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  client:
+    build:
+      context: ../../client
+      args:
+        VITE_API_URL: /api
+        VITE_WS_URL: ""
+    container_name: lt-client
+    cpus: 1.0
+    mem_limit: 512m
+    environment:
+      API_UPSTREAM_1: api-1:3000
+      API_UPSTREAM_2: api-2:3000
+      STORAGE_UPSTREAM: minio:9000
+      OBJECT_STORAGE_BUCKET: transit-grid-uploads
+    ports:
+      - "8080:80"
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  lt_postgres_data:
+  lt_minio_data:
+  lt_redis_data:
+  lt_rabbitmq_data:

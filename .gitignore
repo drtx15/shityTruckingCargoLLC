@@ -14,5 +14,4 @@ __pycache__/
 
 /generated/prisma
 server/uploads/
-ACTION_PLAN.md
-AUDIT_REPORT.md
+DEPLOY_GIT.md

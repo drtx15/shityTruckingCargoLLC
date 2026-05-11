@@ -1,0 +1,615 @@
+{
+  "createdAt": "2026-05-11T09:49:26.177Z",
+  "results": [
+    {
+      "target": 10,
+      "stats": [
+        {
+          "name": "lt-rabbitmq",
+          "avgCpu": 21.022499999999997,
+          "maxCpu": 75.96,
+          "avgMemMiB": 147.125,
+          "maxMemMiB": 189.4,
+          "maxMemPct": 12.33
+        },
+        {
+          "name": "lt-worker-2",
+          "avgCpu": 18.405,
+          "maxCpu": 31.5,
+          "avgMemMiB": 96.89,
+          "maxMemMiB": 99.43,
+          "maxMemPct": 9.71
+        },
+        {
+          "name": "lt-worker-1",
+          "avgCpu": 14.175,
+          "maxCpu": 31.63,
+          "avgMemMiB": 96.95500000000001,
+          "maxMemMiB": 99.1,
+          "maxMemPct": 9.68
+        },
+        {
+          "name": "lt-postgres",
+          "avgCpu": 5.7375,
+          "maxCpu": 7.18,
+          "avgMemMiB": 84.01,
+          "maxMemMiB": 95.56,
+          "maxMemPct": 6.22
+        },
+        {
+          "name": "lt-api-2",
+          "avgCpu": 3.725,
+          "maxCpu": 11.39,
+          "avgMemMiB": 97.625,
+          "maxMemMiB": 108.3,
+          "maxMemPct": 10.57
+        },
+        {
+          "name": "lt-api-1",
+          "avgCpu": 3.33,
+          "maxCpu": 10.91,
+          "avgMemMiB": 97.77,
+          "maxMemMiB": 108.4,
+          "maxMemPct": 10.59
+        },
+        {
+          "name": "lt-redis",
+          "avgCpu": 1.4024999999999999,
+          "maxCpu": 1.58,
+          "avgMemMiB": 4.61625,
+          "maxMemMiB": 5.047,
+          "maxMemPct": 0.99
+        },
+        {
+          "name": "lt-simulator",
+          "avgCpu": 1.0025,
+          "maxCpu": 1.03,
+          "avgMemMiB": 33.09,
+          "maxMemMiB": 33.09,
+          "maxMemPct": 6.46
+        },
+        {
+          "name": "lt-client",
+          "avgCpu": 0.4825,
+          "maxCpu": 1.93,
+          "avgMemMiB": 10.37825,
+          "maxMemMiB": 10.57,
+          "maxMemPct": 2.06
+        },
+        {
+          "name": "lt-minio",
+          "avgCpu": 0.0325,
+          "maxCpu": 0.07,
+          "avgMemMiB": 69.3225,
+          "maxMemMiB": 69.67,
+          "maxMemPct": 13.61
+        },
+        {
+          "name": "lt-osrm-mock",
+          "avgCpu": 0.022500000000000003,
+          "maxCpu": 0.04,
+          "avgMemMiB": 13.91,
+          "maxMemMiB": 13.91,
+          "maxMemPct": 10.87
+        }
+      ],
+      "db": {
+        "users": 10,
+        "trucks": 10,
+        "shipments": 10,
+        "telemetry": 281,
+        "checkpoints": 40
+      },
+      "queues": [
+        {
+          "name": "telemetry.location.queue",
+          "messages_ready": 0,
+          "messages_unacknowledged": 2
+        },
+        {
+          "name": "telemetry.location.dlq",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        }
+      ],
+      "activity": {
+        "requests": 336,
+        "errors": 0,
+        "p50": 15.567900000001828,
+        "p95": 50.249400000000605,
+        "p99": 2147.142,
+        "max": 2215.2383000000004,
+        "errorSamples": [],
+        "stageTarget": 10
+      }
+    },
+    {
+      "target": 20,
+      "stats": [
+        {
+          "name": "lt-worker-2",
+          "avgCpu": 18.487499999999997,
+          "maxCpu": 21.47,
+          "avgMemMiB": 95.4875,
+          "maxMemMiB": 96.07,
+          "maxMemPct": 9.38
+        },
+        {
+          "name": "lt-worker-1",
+          "avgCpu": 12.465,
+          "maxCpu": 13.91,
+          "avgMemMiB": 93.6375,
+          "maxMemMiB": 94.05,
+          "maxMemPct": 9.19
+        },
+        {
+          "name": "lt-postgres",
+          "avgCpu": 10.365,
+          "maxCpu": 12,
+          "avgMemMiB": 86.7125,
+          "maxMemMiB": 93.98,
+          "maxMemPct": 6.12
+        },
+        {
+          "name": "lt-rabbitmq",
+          "avgCpu": 5.66,
+          "maxCpu": 6.44,
+          "avgMemMiB": 149.25,
+          "maxMemMiB": 156.4,
+          "maxMemPct": 10.18
+        },
+        {
+          "name": "lt-simulator",
+          "avgCpu": 3.8525,
+          "maxCpu": 9.9,
+          "avgMemMiB": 35.3425,
+          "maxMemMiB": 35.35,
+          "maxMemPct": 6.9
+        },
+        {
+          "name": "lt-redis",
+          "avgCpu": 3.1325,
+          "maxCpu": 4.37,
+          "avgMemMiB": 4.7775,
+          "maxMemMiB": 4.969,
+          "maxMemPct": 0.97
+        },
+        {
+          "name": "lt-api-2",
+          "avgCpu": 1.245,
+          "maxCpu": 1.5,
+          "avgMemMiB": 99.2975,
+          "maxMemMiB": 105.8,
+          "maxMemPct": 10.33
+        },
+        {
+          "name": "lt-api-1",
+          "avgCpu": 1.1425,
+          "maxCpu": 1.39,
+          "avgMemMiB": 100.60749999999999,
+          "maxMemMiB": 105.9,
+          "maxMemPct": 10.34
+        },
+        {
+          "name": "lt-minio",
+          "avgCpu": 0.0225,
+          "maxCpu": 0.04,
+          "avgMemMiB": 69.67,
+          "maxMemMiB": 69.67,
+          "maxMemPct": 13.61
+        },
+        {
+          "name": "lt-osrm-mock",
+          "avgCpu": 0.0125,
+          "maxCpu": 0.02,
+          "avgMemMiB": 13.91,
+          "maxMemMiB": 13.91,
+          "maxMemPct": 10.87
+        },
+        {
+          "name": "lt-client",
+          "avgCpu": 0,
+          "maxCpu": 0,
+          "avgMemMiB": 10.67,
+          "maxMemMiB": 10.77,
+          "maxMemPct": 2.1
+        }
+      ],
+      "db": {
+        "users": 20,
+        "trucks": 20,
+        "shipments": 20,
+        "telemetry": 871,
+        "checkpoints": 90
+      },
+      "queues": [
+        {
+          "name": "telemetry.location.queue",
+          "messages_ready": 0,
+          "messages_unacknowledged": 1
+        },
+        {
+          "name": "telemetry.location.dlq",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        }
+      ],
+      "activity": {
+        "requests": 560,
+        "errors": 0,
+        "p50": 14.712500000001455,
+        "p95": 102.41820000000007,
+        "p99": 2315.896999999997,
+        "max": 2459.861299999997,
+        "errorSamples": [],
+        "stageTarget": 20
+      }
+    },
+    {
+      "target": 30,
+      "stats": [
+        {
+          "name": "lt-rabbitmq",
+          "avgCpu": 25.232499999999998,
+          "maxCpu": 74.49,
+          "avgMemMiB": 195.075,
+          "maxMemMiB": 250.7,
+          "maxMemPct": 16.32
+        },
+        {
+          "name": "lt-worker-2",
+          "avgCpu": 19.5475,
+          "maxCpu": 20.17,
+          "avgMemMiB": 97.33,
+          "maxMemMiB": 97.95,
+          "maxMemPct": 9.57
+        },
+        {
+          "name": "lt-worker-1",
+          "avgCpu": 15.415000000000001,
+          "maxCpu": 16.55,
+          "avgMemMiB": 97.18,
+          "maxMemMiB": 98.47,
+          "maxMemPct": 9.62
+        },
+        {
+          "name": "lt-postgres",
+          "avgCpu": 15.3325,
+          "maxCpu": 16.69,
+          "avgMemMiB": 98.4875,
+          "maxMemMiB": 124.1,
+          "maxMemPct": 8.08
+        },
+        {
+          "name": "lt-redis",
+          "avgCpu": 3.1825,
+          "maxCpu": 4.64,
+          "avgMemMiB": 5.51375,
+          "maxMemMiB": 5.566,
+          "maxMemPct": 1.09
+        },
+        {
+          "name": "lt-simulator",
+          "avgCpu": 2.8025,
+          "maxCpu": 3.03,
+          "avgMemMiB": 37.5475,
+          "maxMemMiB": 37.55,
+          "maxMemPct": 7.33
+        },
+        {
+          "name": "lt-api-1",
+          "avgCpu": 2.1374999999999997,
+          "maxCpu": 5.31,
+          "avgMemMiB": 102.8475,
+          "maxMemMiB": 111.2,
+          "maxMemPct": 10.86
+        },
+        {
+          "name": "lt-api-2",
+          "avgCpu": 1.225,
+          "maxCpu": 1.68,
+          "avgMemMiB": 102.635,
+          "maxMemMiB": 111,
+          "maxMemPct": 10.84
+        },
+        {
+          "name": "lt-minio",
+          "avgCpu": 0.055,
+          "maxCpu": 0.08,
+          "avgMemMiB": 71.18,
+          "maxMemMiB": 71.18,
+          "maxMemPct": 13.9
+        },
+        {
+          "name": "lt-osrm-mock",
+          "avgCpu": 0.01,
+          "maxCpu": 0.01,
+          "avgMemMiB": 13.91,
+          "maxMemMiB": 13.91,
+          "maxMemPct": 10.87
+        },
+        {
+          "name": "lt-client",
+          "avgCpu": 0,
+          "maxCpu": 0,
+          "avgMemMiB": 10.77,
+          "maxMemMiB": 10.83,
+          "maxMemPct": 2.11
+        }
+      ],
+      "db": {
+        "users": 30,
+        "trucks": 30,
+        "shipments": 30,
+        "telemetry": 1796,
+        "checkpoints": 150
+      },
+      "queues": [
+        {
+          "name": "telemetry.location.queue",
+          "messages_ready": 0,
+          "messages_unacknowledged": 1
+        },
+        {
+          "name": "telemetry.location.dlq",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        }
+      ],
+      "activity": {
+        "requests": 560,
+        "errors": 0,
+        "p50": 17.353000000002794,
+        "p95": 119.54970000000321,
+        "p99": 2441.405899999998,
+        "max": 2730.3076,
+        "errorSamples": [],
+        "stageTarget": 30
+      }
+    },
+    {
+      "target": 40,
+      "stats": [
+        {
+          "name": "lt-worker-2",
+          "avgCpu": 39.1375,
+          "maxCpu": 45.86,
+          "avgMemMiB": 106.28,
+          "maxMemMiB": 110.6,
+          "maxMemPct": 10.8
+        },
+        {
+          "name": "lt-postgres",
+          "avgCpu": 17.95,
+          "maxCpu": 20.68,
+          "avgMemMiB": 90.1625,
+          "maxMemMiB": 111.3,
+          "maxMemPct": 7.24
+        },
+        {
+          "name": "lt-rabbitmq",
+          "avgCpu": 15.5075,
+          "maxCpu": 58.54,
+          "avgMemMiB": 223.47500000000002,
+          "maxMemMiB": 255.4,
+          "maxMemPct": 16.63
+        },
+        {
+          "name": "lt-worker-1",
+          "avgCpu": 8.285,
+          "maxCpu": 16.02,
+          "avgMemMiB": 102.4025,
+          "maxMemMiB": 110.7,
+          "maxMemPct": 10.81
+        },
+        {
+          "name": "lt-api-2",
+          "avgCpu": 6.3125,
+          "maxCpu": 20.05,
+          "avgMemMiB": 102.35,
+          "maxMemMiB": 109.2,
+          "maxMemPct": 10.66
+        },
+        {
+          "name": "lt-simulator",
+          "avgCpu": 5.3775,
+          "maxCpu": 12.09,
+          "avgMemMiB": 39.832499999999996,
+          "maxMemMiB": 39.86,
+          "maxMemPct": 7.79
+        },
+        {
+          "name": "lt-api-1",
+          "avgCpu": 4.9025,
+          "maxCpu": 14.14,
+          "avgMemMiB": 105.11,
+          "maxMemMiB": 111.5,
+          "maxMemPct": 10.89
+        },
+        {
+          "name": "lt-redis",
+          "avgCpu": 3.5475,
+          "maxCpu": 5.52,
+          "avgMemMiB": 5.93675,
+          "maxMemMiB": 6.141,
+          "maxMemPct": 1.2
+        },
+        {
+          "name": "lt-minio",
+          "avgCpu": 0.0275,
+          "maxCpu": 0.07,
+          "avgMemMiB": 71.18,
+          "maxMemMiB": 71.18,
+          "maxMemPct": 13.9
+        },
+        {
+          "name": "lt-osrm-mock",
+          "avgCpu": 0.015,
+          "maxCpu": 0.02,
+          "avgMemMiB": 13.91,
+          "maxMemMiB": 13.91,
+          "maxMemPct": 10.87
+        },
+        {
+          "name": "lt-client",
+          "avgCpu": 0,
+          "maxCpu": 0,
+          "avgMemMiB": 10.805,
+          "maxMemMiB": 10.83,
+          "maxMemPct": 2.11
+        }
+      ],
+      "db": {
+        "users": 40,
+        "trucks": 40,
+        "shipments": 40,
+        "telemetry": 3005,
+        "checkpoints": 208
+      },
+      "queues": [
+        {
+          "name": "telemetry.location.queue",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        },
+        {
+          "name": "telemetry.location.dlq",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        }
+      ],
+      "activity": {
+        "requests": 535,
+        "errors": 0,
+        "p50": 24.7445000000007,
+        "p95": 175.57850000000326,
+        "p99": 2454.416499999992,
+        "max": 2511.234799999991,
+        "errorSamples": [],
+        "stageTarget": 40
+      }
+    },
+    {
+      "target": 50,
+      "stats": [
+        {
+          "name": "lt-worker-2",
+          "avgCpu": 51.205,
+          "maxCpu": 66.19,
+          "avgMemMiB": 111.675,
+          "maxMemMiB": 112.8,
+          "maxMemPct": 11.01
+        },
+        {
+          "name": "lt-postgres",
+          "avgCpu": 23.275,
+          "maxCpu": 25.4,
+          "avgMemMiB": 86.7,
+          "maxMemMiB": 98.83,
+          "maxMemPct": 6.43
+        },
+        {
+          "name": "lt-api-2",
+          "avgCpu": 6.7250000000000005,
+          "maxCpu": 15.88,
+          "avgMemMiB": 106.52,
+          "maxMemMiB": 116.8,
+          "maxMemPct": 11.4
+        },
+        {
+          "name": "lt-worker-1",
+          "avgCpu": 4.8175,
+          "maxCpu": 14.89,
+          "avgMemMiB": 103.1,
+          "maxMemMiB": 105.6,
+          "maxMemPct": 10.31
+        },
+        {
+          "name": "lt-redis",
+          "avgCpu": 4.4525,
+          "maxCpu": 6.96,
+          "avgMemMiB": 6.550000000000001,
+          "maxMemMiB": 6.766,
+          "maxMemPct": 1.32
+        },
+        {
+          "name": "lt-simulator",
+          "avgCpu": 4.1475,
+          "maxCpu": 4.63,
+          "avgMemMiB": 42.2625,
+          "maxMemMiB": 42.36,
+          "maxMemPct": 8.27
+        },
+        {
+          "name": "lt-api-1",
+          "avgCpu": 3.2975,
+          "maxCpu": 8.11,
+          "avgMemMiB": 106.655,
+          "maxMemMiB": 117.9,
+          "maxMemPct": 11.51
+        },
+        {
+          "name": "lt-rabbitmq",
+          "avgCpu": 2.3099999999999996,
+          "maxCpu": 5.96,
+          "avgMemMiB": 214.72500000000002,
+          "maxMemMiB": 219.8,
+          "maxMemPct": 14.31
+        },
+        {
+          "name": "lt-minio",
+          "avgCpu": 0.022500000000000003,
+          "maxCpu": 0.04,
+          "avgMemMiB": 73.09,
+          "maxMemMiB": 73.09,
+          "maxMemPct": 14.27
+        },
+        {
+          "name": "lt-osrm-mock",
+          "avgCpu": 0.01,
+          "maxCpu": 0.01,
+          "avgMemMiB": 13.92,
+          "maxMemMiB": 13.92,
+          "maxMemPct": 10.87
+        },
+        {
+          "name": "lt-client",
+          "avgCpu": 0,
+          "maxCpu": 0,
+          "avgMemMiB": 10.8125,
+          "maxMemMiB": 10.84,
+          "maxMemPct": 2.12
+        }
+      ],
+      "db": {
+        "users": 50,
+        "trucks": 50,
+        "shipments": 50,
+        "telemetry": 4482,
+        "checkpoints": 270
+      },
+      "queues": [
+        {
+          "name": "telemetry.location.queue",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        },
+        {
+          "name": "telemetry.location.dlq",
+          "messages_ready": 0,
+          "messages_unacknowledged": 0
+        }
+      ],
+      "activity": {
+        "requests": 560,
+        "errors": 0,
+        "p50": 14.152099999977509,
+        "p95": 174.08090000000084,
+        "p99": 1955.4513000000006,
+        "max": 2090.074600000007,
+        "errorSamples": [],
+        "stageTarget": 50
+      }
+    }
+  ]
+}
