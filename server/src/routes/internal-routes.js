@@ -1,4 +1,23 @@
 const { enqueueTelemetry } = require('../services/telemetry-queue-service')
+const config = require('../config')
+
+function getInternalApiKey(request) {
+    const header = request.headers['x-internal-api-key']
+    if (Array.isArray(header)) {
+        return header[0]
+    }
+
+    if (typeof header === 'string') {
+        return header
+    }
+
+    const authorization = request.headers.authorization || ''
+    if (authorization.startsWith('Bearer ')) {
+        return authorization.slice('Bearer '.length)
+    }
+
+    return ''
+}
 
 function toNumber(value) {
     const number = Number(value)
@@ -6,6 +25,16 @@ function toNumber(value) {
 }
 
 async function internalRoutes(app) {
+    app.addHook('preHandler', async (request, reply) => {
+        if (!config.internalApiKey) {
+            return
+        }
+
+        if (getInternalApiKey(request) !== config.internalApiKey) {
+            return reply.code(401).send({ message: 'Unauthorized internal request' })
+        }
+    })
+
     app.get('/shipments/:id/route', async (request, reply) => {
         const shipmentId = Number(request.params.id)
         const shipment = await app.prisma.shipment.findUnique({

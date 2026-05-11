@@ -17,6 +17,17 @@ The gateway is the single public entrypoint:
 
 The compose stack starts Nginx, React, two Fastify backend replicas, a telemetry worker, Python simulator, Postgres, Redis, RabbitMQ, OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana, and Promtail.
 
+For separated droplet deployment without a container registry, use [DEPLOY_GIT.md](DEPLOY_GIT.md).
+
+Locked droplet plan:
+
+- `client-gateway`: React static app plus nginx gateway/load balancer.
+- `api-1`, `api-2`: Fastify API replicas.
+- `worker-1`, `worker-2`: telemetry/background workers.
+- `simulator-provider`: standalone telematics provider API.
+- `postgres`: Postgres plus MinIO object storage containers with persistent volumes.
+- `redis-rabbitmq`: Redis and RabbitMQ containers.
+
 ## Local Development
 
 Backend:
@@ -43,7 +54,7 @@ Simulator:
 ```powershell
 Set-Location simulator
 pip install -r requirements.txt
-$env:BACKEND_URL = "http://localhost:3000"
+$env:PROVIDER_API_KEY = "change-me-provider-api-key"
 uvicorn main:app --reload --port 8001
 ```
 
@@ -54,7 +65,9 @@ Backend uses `server/.env.example` as the reference. Important variables:
 - `DATABASE_URL`: Postgres connection string.
 - `REDIS_URL`: Redis URL for tracking snapshots, pub/sub, geocoding cache, and token buckets.
 - `RABBITMQ_URL`: RabbitMQ URL for telemetry streaming.
-- `SIMULATOR_URL`: Python simulator base URL.
+- `SIMULATOR_URL`: external telematics provider base URL used for simulation control and GPS polling.
+- `TELEMATICS_PROVIDER_API_KEY`: API key Transit Grid sends to the provider.
+- `TELEMATICS_PROVIDER_POLL_INTERVAL_SECONDS`: worker interval for polling provider locations.
 - `PUBLIC_BASE_URL`: public gateway URL used in generated links.
 - `JWT_SECRET`: auth token signing secret.
 - `RESEND_API_KEY`: Resend API key for passwordless email verification.
@@ -77,7 +90,7 @@ Frontend uses:
 - Truck assignment rules based on idle state and capacity.
 - Checkpoint timeline, ETA history, delay detection, and proof of delivery.
 - Webhook subscriptions and delivery attempts with retry tracking.
-- WebSocket live tracking for operator and public pages.
+- External telematics-provider polling and WebSocket live tracking for operator and public pages.
 - Passwordless Resend login with role-based customer, driver, dispatcher, fleet, broker, and admin workspaces.
 - Redis-backed active tracking snapshots.
 - RabbitMQ telemetry stream with worker processing.
@@ -89,6 +102,8 @@ Frontend uses:
 - `server/`: Fastify API, Prisma data layer, worker, Redis/RabbitMQ integrations.
 - `simulator/`: FastAPI truck movement simulator.
 - `infra/nginx/`: API gateway configuration.
+- `infra/postgres/`: single-droplet Postgres plus MinIO object storage deployment.
+- `infra/queue/`: single-droplet Redis and RabbitMQ deployment.
 - `infra/observability/`: Prometheus, Loki, Tempo, Grafana, Promtail, and OTel configs.
 - `report/`: report source, diagrams, and BPMN documentation.
 - `tools/`: project utility scripts such as tracking benchmarks.

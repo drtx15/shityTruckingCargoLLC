@@ -20,7 +20,8 @@ def _read_int(name: str, fallback: int) -> int:
         return fallback
 
 
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:3000').rstrip('/')
+PROVIDER_NAME = os.getenv('PROVIDER_NAME', 'Transit Grid Telematics Sandbox')
+PROVIDER_API_KEY = os.getenv('PROVIDER_API_KEY', '')
 SIMULATOR_HOST = os.getenv('SIMULATOR_HOST', '0.0.0.0')
 SIMULATOR_PORT = _read_int('SIMULATOR_PORT', 8001)
 MAX_ROUTE_POINTS = _read_int('MAX_ROUTE_POINTS', 0)

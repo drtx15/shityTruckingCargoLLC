@@ -1,0 +1,23 @@
+name: transit-grid-client
+
+services:
+  client:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_WS_URL: "${VITE_WS_URL:-}"
+    container_name: transit-grid-client
+    environment:
+      API_UPSTREAM_1: ${API_UPSTREAM_1:-127.0.0.1:3000}
+      API_UPSTREAM_2: ${API_UPSTREAM_2:-127.0.0.1:3000}
+      STORAGE_UPSTREAM: ${STORAGE_UPSTREAM:-127.0.0.1:9000}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-transit-grid-uploads}
+    ports:
+      - "${CLIENT_PORT:-80}:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

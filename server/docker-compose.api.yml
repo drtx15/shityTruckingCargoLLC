@@ -1,0 +1,32 @@
+name: transit-grid-api
+
+services:
+  api:
+    build:
+      context: .
+    container_name: transit-grid-api
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - api_uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    build:
+      context: .
+    command: ["npm", "run", "prisma:deploy"]
+    env_file:
+      - .env
+    profiles:
+      - migrate
+    restart: "no"
+
+volumes:
+  api_uploads:

@@ -1,6 +1,8 @@
 const crypto = require('node:crypto')
 const fs = require('node:fs/promises')
 const path = require('node:path')
+const { PutObjectCommand, S3Client } = require('@aws-sdk/client-s3')
+const config = require('../config')
 
 const maxAvatarBytes = 2 * 1024 * 1024
 const uploadDir = path.resolve(__dirname, '../../uploads/avatars')
@@ -10,6 +12,32 @@ const mimeTypes = {
     'image/jpeg': 'jpg',
     'image/png': 'png',
     'image/webp': 'webp'
+}
+
+function hasObjectStorage() {
+    return Boolean(
+        config.objectStorage.bucket
+        && config.objectStorage.accessKeyId
+        && config.objectStorage.secretAccessKey
+    )
+}
+
+let s3Client = null
+
+function getS3Client() {
+    if (!s3Client) {
+        s3Client = new S3Client({
+            endpoint: config.objectStorage.endpoint || undefined,
+            forcePathStyle: Boolean(config.objectStorage.endpoint),
+            region: config.objectStorage.region,
+            credentials: {
+                accessKeyId: config.objectStorage.accessKeyId,
+                secretAccessKey: config.objectStorage.secretAccessKey
+            }
+        })
+    }
+
+    return s3Client
 }
 
 function normalizeText(value) {
@@ -47,6 +75,29 @@ async function persistAvatarValue(value) {
     const buffer = Buffer.from(parsed.payload, 'base64')
     if (!buffer.length || buffer.length > maxAvatarBytes) {
         throw new Error('Avatar image must be under 2 MB')
+    }
+
+    if (hasObjectStorage()) {
+        const key = `avatars/${crypto.randomUUID()}.${extension}`
+        await getS3Client().send(new PutObjectCommand({
+            ACL: 'public-read',
+            Body: buffer,
+            Bucket: config.objectStorage.bucket,
+            CacheControl: 'public, max-age=31536000, immutable',
+            ContentType: parsed.mimeType,
+            Key: key
+        }))
+
+        if (config.objectStorage.publicBaseUrl) {
+            return `${config.objectStorage.publicBaseUrl.replace(/\/$/, '')}/${key}`
+        }
+
+        const endpoint = config.objectStorage.endpoint
+            ? config.objectStorage.endpoint.replace(/\/$/, '')
+            : `https://${config.objectStorage.bucket}.s3.${config.objectStorage.region}.amazonaws.com`
+        return config.objectStorage.endpoint
+            ? `${endpoint}/${config.objectStorage.bucket}/${key}`
+            : `${endpoint}/${key}`
     }
 
     await fs.mkdir(uploadDir, { recursive: true })

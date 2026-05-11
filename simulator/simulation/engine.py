@@ -1,8 +1,7 @@
 import random
 import time
+import uuid
 from threading import Lock, Thread
-
-import requests
 
 from config import (
     LOCATION_EMIT_INTERVAL_SECONDS,
@@ -21,8 +20,8 @@ from simulation.trucks import IDLE, MOVING, STOPPED, SimulatedTruck
 
 
 class SimulationEngine:
-    def __init__(self, backend_url: str):
-        self.backend_url = backend_url.rstrip('/')
+    def __init__(self, provider_name: str):
+        self.provider_name = provider_name
         self.trucks = {}
         self._lock = Lock()
 
@@ -60,23 +59,36 @@ class SimulationEngine:
                 existing.active = False
             self.trucks[truck.truck_id] = truck
 
-        self._emit_payload(truck, event_type='RESUMED', reason='SIMULATION_STARTED')
+        self._record_payload(truck, event_type='RESUMED', reason='SIMULATION_STARTED')
 
         thread = Thread(target=self._run_loop, args=(truck,), daemon=True)
         thread.start()
 
-    def get_state(self):
+    def get_locations(self):
         with self._lock:
-            return {
-                truck_id: {
-                    'progress': truck.progress,
-                    'speed': truck.current_speed_kph,
+            vehicles = []
+            for truck_id, truck in self.trucks.items():
+                payload = truck.last_payload or {
+                    'provider': self.provider_name,
+                    'providerEventId': None,
+                    'truckId': truck_id,
+                    'lat': truck.current_lat,
+                    'lng': truck.current_lng,
+                    'speed': round(truck.current_speed_kph, 2),
+                    'heading': round(truck.heading_deg, 2),
+                    'accuracy': truck.gps_accuracy_m,
+                    'eventType': 'LOCATION_UPDATE',
                     'state': truck.state,
-                    'heading': truck.heading_deg,
-                    'active': truck.active,
+                    'timestamp': int(time.time()),
                 }
-                for truck_id, truck in self.trucks.items()
-            }
+
+                vehicles.append({
+                    **payload,
+                    'progress': truck.progress,
+                    'active': truck.active,
+                })
+
+            return vehicles
 
     def _run_loop(self, truck: SimulatedTruck):
         while True:
@@ -127,14 +139,14 @@ class SimulationEngine:
                         truck.next_location_emit_ts = now + truck.location_emit_interval_s
 
                 if should_emit_location:
-                    self._emit_payload(truck, event_type='LOCATION_UPDATE')
+                    self._record_payload(truck, event_type='LOCATION_UPDATE')
 
                 if truck.progress >= 1.0:
                     with self._lock:
                         truck.current_speed_kph = 0.0
                         truck.state = IDLE
                         truck.active = False
-                    self._emit_payload(truck, event_type='STOPPED', reason='DESTINATION_REACHED')
+                    self._record_payload(truck, event_type='STOPPED', reason='DESTINATION_REACHED')
                     return
 
                 time.sleep(substep_delay)
@@ -193,8 +205,10 @@ class SimulationEngine:
             return min(target, current + accel_per_s * dt_seconds)
         return max(target, current - decel_per_s * dt_seconds)
 
-    def _emit_payload(self, truck: SimulatedTruck, event_type: str, reason: str | None = None):
+    def _record_payload(self, truck: SimulatedTruck, event_type: str, reason: str | None = None):
         payload = {
+            'provider': self.provider_name,
+            'providerEventId': str(uuid.uuid4()),
             'truckId': truck.truck_id,
             'lat': truck.current_lat,
             'lng': truck.current_lng,
@@ -209,12 +223,7 @@ class SimulationEngine:
         if reason:
             payload['reason'] = reason
 
-        try:
-            requests.post(
-                f'{self.backend_url}/internal/location-update',
-                json=payload,
-                timeout=4,
-            )
-        except requests.RequestException:
-            # The simulator should remain independent from transient backend issues.
-            pass
+        with self._lock:
+            mapped = self.trucks.get(truck.truck_id)
+            if mapped is truck:
+                truck.last_payload = payload

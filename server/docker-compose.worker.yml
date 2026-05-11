@@ -1,0 +1,18 @@
+name: transit-grid-worker
+
+services:
+  worker:
+    build:
+      context: .
+    container_name: transit-grid-worker
+    command: ["npm", "run", "worker"]
+    env_file:
+      - .env
+    ports:
+      - "${WORKER_HEALTH_PUBLIC_PORT:-3001}:3001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12

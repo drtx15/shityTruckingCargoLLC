@@ -43,6 +43,7 @@ function defaultDiskMounts() {
 
 module.exports = {
     port: readNumber('PORT', 3000),
+    workerHealthPort: readNumber('WORKER_HEALTH_PORT', 3001),
     host: readString('HOST', '0.0.0.0'),
     corsOrigin: readString('CORS_ORIGIN', 'http://localhost:5173'),
     jwtSecret: readString('JWT_SECRET', 'supersecret'),
@@ -51,13 +52,24 @@ module.exports = {
     authCodeTtlMinutes: readNumber('AUTH_CODE_TTL_MINUTES', 10),
     databaseUrl: readString('DATABASE_URL', ''),
     simulatorUrl: readString('SIMULATOR_URL', ''),
+    telematicsProviderApiKey: readString('TELEMATICS_PROVIDER_API_KEY', ''),
+    telematicsProviderPollIntervalSeconds: readNumber('TELEMATICS_PROVIDER_POLL_INTERVAL_SECONDS', 2),
     webhookUrl: readString('WEBHOOK_URL', ''),
     publicBaseUrl: readString('PUBLIC_BASE_URL', 'http://localhost:8080'),
+    objectStorage: {
+        endpoint: readString('OBJECT_STORAGE_ENDPOINT', ''),
+        region: readString('OBJECT_STORAGE_REGION', 'us-east-1'),
+        bucket: readString('OBJECT_STORAGE_BUCKET', ''),
+        accessKeyId: readString('OBJECT_STORAGE_ACCESS_KEY_ID', ''),
+        secretAccessKey: readString('OBJECT_STORAGE_SECRET_ACCESS_KEY', ''),
+        publicBaseUrl: readString('OBJECT_STORAGE_PUBLIC_BASE_URL', '')
+    },
     redisUrl: readString('REDIS_URL', ''),
     rabbitmqUrl: readString('RABBITMQ_URL', ''),
     telemetryExchange: readString('TELEMETRY_EXCHANGE', 'telemetry.exchange'),
     telemetryQueue: readString('TELEMETRY_QUEUE', 'telemetry.location.queue'),
     telemetryDlq: readString('TELEMETRY_DLQ', 'telemetry.location.dlq'),
+    internalApiKey: readString('INTERNAL_API_KEY', ''),
     rateLimitCapacity: readNumber('RATE_LIMIT_CAPACITY', 60),
     rateLimitRefillPerMinute: readNumber('RATE_LIMIT_REFILL_PER_MINUTE', 60),
     delayStoppedMinutes: readNumber('DELAY_STOPPED_MINUTES', 10),

@@ -34,3 +34,4 @@ class SimulatedTruck:
     reroute_count: int = 0
     breakdown_count: int = 0
     active: bool = True
+    last_payload: dict | None = None
