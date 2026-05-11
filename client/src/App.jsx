@@ -11,6 +11,7 @@ import DriverRoadPage from './pages/DriverRoadPage'
 import FleetCapacityPage from './pages/FleetCapacityPage'
 import FleetDriversPage from './pages/FleetDriversPage'
 import LoginPage from './pages/LoginPage'
+import ProfilePage from './pages/ProfilePage'
 import ProofOfDeliveryPage from './pages/ProofOfDeliveryPage'
 import PublicTrackingPage from './pages/PublicTrackingPage'
 import ShipmentDetailPage from './pages/ShipmentDetailPage'
@@ -26,43 +27,73 @@ const ThemeContext = createContext(null)
 const themeStorageKey = 'transit-grid-theme'
 
 const roleLabels = {
-  CUSTOMER: 'Customer workspace',
-  DRIVER: 'Driver workspace',
-  DISPATCHER: 'Dispatcher workspace',
-  FLEET_MANAGER: 'Fleet workspace',
-  BROKER: 'Broker workspace',
-  ADMIN: 'Admin workspace'
+  CUSTOMER: 'Shipper Portal',
+  DRIVER: 'Driver Console',
+  DISPATCHER: 'Dispatch Console',
+  FLEET_MANAGER: 'Carrier Console',
+  BROKER: 'Broker Desk',
+  ADMIN: 'Admin Console'
 }
 
 const roleLinks = {
   CUSTOMER: [
-    ['Orders', '/customer/orders'],
-    ['New order', '/customer/orders/new'],
+    ['Load Board', '/customer/orders'],
+    ['Create Load', '/customer/orders/new'],
   ],
   DRIVER: [
-    ['Road', '/driver/road'],
-    ['Delivery proof', '/driver/proof-of-delivery'],
+    ['Assigned Route', '/driver/road'],
+    ['Proof of Delivery', '/driver/proof-of-delivery'],
   ],
   DISPATCHER: [
-    ['Loads', '/dispatcher/loads'],
+    ['Load Board', '/dispatcher/loads'],
     ['Exceptions', '/dispatcher/exceptions'],
-    ['Map', '/dispatcher/map'],
+    ['Fleet Map', '/dispatcher/map'],
   ],
   FLEET_MANAGER: [
-    ['Trucks', '/fleet/trucks'],
+    ['Load Board', '/fleet/load-board'],
+    ['Fleet Assets', '/fleet/trucks'],
     ['Drivers', '/fleet/drivers'],
     ['Capacity', '/fleet/capacity'],
   ],
   BROKER: [
-    ['Dashboard', '/broker/dashboard'],
-    ['Customers', '/broker/customers'],
-    ['New order', '/broker/orders/new'],
+    ['Commercial Board', '/broker/dashboard'],
+    ['Shippers', '/broker/customers'],
+    ['Create Load', '/broker/orders/new'],
   ],
   ADMIN: [
     ['Analytics', '/admin/analytics'],
     ['Webhooks', '/admin/webhooks'],
-    ['Users', '/admin/users'],
+    ['RBAC Users', '/admin/users'],
   ],
+}
+
+const roleScopes = {
+  CUSTOMER: 'Post freight, track owned loads',
+  DRIVER: 'Read assigned loads, submit POD',
+  DISPATCHER: 'Read all loads, assign trucks, pause loads',
+  FLEET_MANAGER: 'Manage carrier assets, capacity, drivers',
+  BROKER: 'Manage shippers, create and broker loads',
+  ADMIN: 'Full platform administration'
+}
+
+function initialsFor(user) {
+  const source = user?.displayName || user?.email || 'Transit Grid'
+  return source
+    .split(/[.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'TG'
+}
+
+function UserAvatar({ user, size = 'default' }) {
+  const classes = ['profile-avatar', size === 'small' ? 'profile-avatar-small' : ''].filter(Boolean).join(' ')
+
+  return (
+    <div className={classes} aria-hidden="true">
+      {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span>{initialsFor(user)}</span>}
+    </div>
+  )
 }
 
 function getInitialTheme() {
@@ -164,13 +195,29 @@ function RoleLayout({ roles }) {
             <div>
               <p className="eyebrow">Transit Grid</p>
               <h1>{roleLabels[primaryRole] || 'Workspace'}</h1>
-              <p>{user?.email}</p>
+              <p>{user?.organization?.legalName || user?.organizationName || user?.shipper?.companyName || user?.truck?.label || 'Operations platform'}</p>
             </div>
           </div>
+          <div className="workspace-profile-card">
+            <UserAvatar user={user} />
+            <div>
+              <strong>{user?.displayName || user?.email}</strong>
+              <span>{user?.title || roleLabels[primaryRole] || 'Workspace user'}</span>
+              <small>{user?.email}</small>
+            </div>
+          </div>
+          <div className="rbac-scope">
+            <span>{primaryRole}</span>
+            <p>{roleScopes[primaryRole] || 'Role-scoped access'}</p>
+            {user?.organization?.verificationStatus && <small>{user.organization.verificationStatus.replaceAll('_', ' ')}</small>}
+          </div>
           <nav className="workspace-nav" aria-label={`${roleLabels[primaryRole]} navigation`}>
+            <span className="nav-section-label">Operations</span>
             {links.map(([label, to]) => (
               <NavLink key={to} to={to}>{label}</NavLink>
             ))}
+            <span className="nav-section-label">Account</span>
+            <NavLink to="/profile">Profile</NavLink>
           </nav>
           <div className="workspace-sidebar-footer">
             <ThemeToggle />
@@ -192,7 +239,10 @@ function RoleLayout({ roles }) {
               <p className="eyebrow">Workspace</p>
               <strong>{roleLabels[primaryRole] || 'Transit Grid'}</strong>
             </div>
-            <span>{user?.email}</span>
+            <div className="topbar-profile">
+              <UserAvatar user={user} size="small" />
+              <span>{user?.displayName || user?.email}</span>
+            </div>
           </header>
           <Outlet />
         </main>
@@ -255,7 +305,12 @@ function AppRoutes() {
       </Route>
 
       <Route path="/fleet" element={<RoleLayout roles={['FLEET_MANAGER']} />}>
-        <Route index element={<Navigate to="/fleet/trucks" replace />} />
+        <Route index element={<Navigate to="/fleet/load-board" replace />} />
+        <Route
+          path="load-board"
+          element={<ShipmentsPage eyebrow="Carrier marketplace" title="Load board" createTo={null} detailBasePath="/fleet/load-board" loadBoardMode listTitle="Available freight" />}
+        />
+        <Route path="load-board/:id" element={<ShipmentDetailPage />} />
         <Route path="trucks" element={<TrucksPage />} />
         <Route path="drivers" element={<FleetDriversPage />} />
         <Route path="capacity" element={<FleetCapacityPage />} />
@@ -285,6 +340,14 @@ function AppRoutes() {
         element={(
           <ProtectedRoute roles={allRoles}>
             <ShipmentDetailPage />
+          </ProtectedRoute>
+        )}
+      />
+      <Route
+        path="/profile"
+        element={(
+          <ProtectedRoute roles={allRoles}>
+            <ProfilePage />
           </ProtectedRoute>
         )}
       />

@@ -1,5 +1,27 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import { MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap } from 'react-leaflet'
+
+const markerIcons = {
+    origin: L.divIcon({
+        className: 'map-marker map-marker-origin',
+        html: '<span></span>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    }),
+    destination: L.divIcon({
+        className: 'map-marker map-marker-destination',
+        html: '<span></span>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    }),
+    truck: L.divIcon({
+        className: 'map-marker map-marker-truck',
+        html: '<span></span>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+    })
+}
 
 function RouteBounds({ positions }) {
     const map = useMap()
@@ -73,22 +95,18 @@ function TrackingMap({ route, truck, compact = false, heading = 'Live Tracking' 
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <RouteBounds positions={routePositions} />
-                <CircleMarker center={origin} radius={8} pathOptions={{ color: '#6b7280', fillColor: '#94a3b8', fillOpacity: 0.95 }}>
+                <Marker position={origin} icon={markerIcons.origin}>
                     <Tooltip permanent direction="top" opacity={0.95}>
                         Origin
                     </Tooltip>
-                </CircleMarker>
-                <CircleMarker center={destination} radius={8} pathOptions={{ color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.95 }}>
+                </Marker>
+                <Marker position={destination} icon={markerIcons.destination}>
                     <Tooltip permanent direction="top" opacity={0.95}>
                         Destination
                     </Tooltip>
-                </CircleMarker>
+                </Marker>
                 {truckPosition && (
-                    <CircleMarker
-                        center={truckPosition}
-                        radius={10}
-                        pathOptions={{ color: '#1d4ed8', fillColor: '#3b82f6', fillOpacity: 0.98 }}
-                    >
+                    <Marker position={truckPosition} icon={markerIcons.truck}>
                         <Tooltip permanent direction="top" opacity={0.98}>
                             <div className="truck-tooltip">
                                 <strong>{truck?.label || 'Assigned truck'}</strong>
@@ -104,9 +122,9 @@ function TrackingMap({ route, truck, compact = false, heading = 'Live Tracking' 
                                 </span>
                             </div>
                         </Tooltip>
-                    </CircleMarker>
+                    </Marker>
                 )}
-                <Polyline positions={routePositions} />
+                <Polyline positions={routePositions} pathOptions={{ color: '#2563eb', weight: 4, opacity: 0.88 }} />
             </MapContainer>
         </div>
     )

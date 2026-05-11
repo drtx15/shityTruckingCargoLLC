@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getShipments, getTracking, openTrackingSocket } from '../api'
+import { SignalIcon, TruckIcon } from '../components/IconControls'
+import MetricStrip from '../components/MetricStrip'
+import StatusIndicator from '../components/StatusIndicator'
 import TrackingMap from '../map/TrackingMap'
 
 function DispatcherMapPage() {
@@ -60,12 +63,22 @@ function DispatcherMapPage() {
         }
     }, [selectedId])
 
+    const selectedShipment = useMemo(() => {
+        return shipments.find((shipment) => String(shipment.id) === String(selectedId)) || null
+    }, [selectedId, shipments])
+
+    const stats = useMemo(() => ({
+        active: shipments.filter((shipment) => !['ARRIVED', 'CANCELLED'].includes(shipment.status)).length,
+        delayed: shipments.filter((shipment) => shipment.status === 'DELAYED' || shipment.isPaused).length,
+        assigned: shipments.filter((shipment) => shipment.assignedTruck).length
+    }), [shipments])
+
     return (
         <section className="page-stack">
             <div className="page-heading">
                 <div>
                     <p className="eyebrow">Dispatcher</p>
-                    <h2>Live map</h2>
+                    <h2>Fleet overview map</h2>
                 </div>
                 <label className="role-select">
                     Shipment
@@ -77,15 +90,55 @@ function DispatcherMapPage() {
                     </select>
                 </label>
             </div>
-            {error && <p className="error-text">{error}</p>}
-            {tracking ? (
-                <TrackingMap route={{ ...tracking.route, etaMinutes: tracking.etaMinutes }} truck={tracking.truck} heading="Dispatch route map" />
-            ) : (
-                <div className="empty-state">
-                    <h3>No shipment selected.</h3>
-                    <p>Choose a shipment to inspect its route and assigned truck.</p>
+
+            <MetricStrip
+                items={[
+                    { label: 'Active loads', value: stats.active, icon: SignalIcon, state: stats.active ? 'live' : '' },
+                    { label: 'Exceptions', value: stats.delayed, tone: stats.delayed ? 'risk' : '' },
+                    { label: 'Assigned trucks', value: stats.assigned, icon: TruckIcon },
+                    { label: 'Selected load', value: selectedShipment?.trackingCode || 'None' }
+                ]}
+            />
+
+            <div className="map-console">
+                <aside className="panel map-load-list">
+                    <div className="page-heading">
+                        <div>
+                            <p className="eyebrow">Live loads</p>
+                            <h2>Dispatch queue</h2>
+                        </div>
+                    </div>
+                    <div className="load-list">
+                        {shipments.map((shipment) => (
+                            <button
+                                key={shipment.id}
+                                type="button"
+                                className={`load-list-item ${String(shipment.id) === String(selectedId) ? 'is-active' : ''}`.trim()}
+                                onClick={() => setSelectedId(String(shipment.id))}
+                            >
+                                <span>
+                                    <strong>{shipment.trackingCode || `Shipment ${shipment.id}`}</strong>
+                                    <StatusIndicator status={shipment.status} />
+                                </span>
+                                <small>{shipment.assignedTruck?.label || 'Unassigned'} / {shipment.priority}</small>
+                                <small>{shipment.originLabel || 'Origin'} to {shipment.destinationLabel || 'Destination'}</small>
+                            </button>
+                        ))}
+                    </div>
+                </aside>
+
+                <div className="map-workspace">
+                    {error && <p className="error-text">{error}</p>}
+                    {tracking ? (
+                        <TrackingMap route={{ ...tracking.route, etaMinutes: tracking.etaMinutes }} truck={tracking.truck} heading="Dispatch route map" />
+                    ) : (
+                        <div className="empty-state">
+                            <h3>No shipment selected.</h3>
+                            <p>Choose a shipment to inspect its route and assigned truck.</p>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </section>
     )
 }

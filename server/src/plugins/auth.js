@@ -13,7 +13,7 @@ async function authPlugin(app) {
             const userId = Number(claims.userId)
             const user = await app.prisma.user.findUnique({
                 where: { id: userId },
-                include: { shipper: true, truck: true }
+                include: { organization: true, shipper: true, truck: true }
             })
 
             if (!user) {

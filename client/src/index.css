@@ -1,20 +1,20 @@
 :root {
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --bg: #f3f6f8;
-  --bg-soft: #e8eef1;
+  --bg: #eef2f4;
+  --bg-soft: #e3e8eb;
   --surface: #ffffff;
-  --surface-raised: #fbfdfe;
-  --surface-muted: #f5f8fa;
+  --surface-raised: #ffffff;
+  --surface-muted: #f6f8f9;
   --text: #17252c;
   --text-strong: #0b171d;
   --muted: #5f727c;
   --muted-strong: #40545f;
-  --border: rgba(30, 52, 62, 0.13);
-  --border-strong: rgba(30, 52, 62, 0.22);
-  --accent: #0f6f7b;
-  --accent-strong: #0a5661;
-  --accent-soft: rgba(15, 111, 123, 0.1);
-  --accent-softer: rgba(15, 111, 123, 0.06);
+  --border: rgba(30, 52, 62, 0.16);
+  --border-strong: rgba(30, 52, 62, 0.28);
+  --accent: #0c6670;
+  --accent-strong: #084d55;
+  --accent-soft: rgba(12, 102, 112, 0.1);
+  --accent-softer: rgba(12, 102, 112, 0.06);
   --success: #0e7b56;
   --success-soft: rgba(14, 123, 86, 0.12);
   --warning: #9b6417;
@@ -23,18 +23,16 @@
   --danger-soft: rgba(185, 52, 52, 0.12);
   --info: #2563a7;
   --info-soft: rgba(37, 99, 167, 0.12);
-  --shadow-sm: 0 1px 2px rgba(13, 27, 34, 0.06);
-  --shadow-md: 0 14px 34px rgba(13, 27, 34, 0.08);
-  --radius-sm: 8px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --sidebar-width: 248px;
+  --shadow-sm: none;
+  --shadow-md: 0 12px 28px rgba(13, 27, 34, 0.1);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --sidebar-width: 228px;
 
   font-family: var(--font-sans);
   color: var(--text);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(15, 111, 123, 0.08), transparent 30%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+  background: var(--bg);
   font-size: 16px;
   line-height: 1.45;
   font-weight: 400;
@@ -43,11 +41,11 @@
 }
 
 :root[data-theme='dark'] {
-  --bg: #0d1216;
+  --bg: #0f1519;
   --bg-soft: #111a20;
-  --surface: #151d23;
-  --surface-raised: #1a252c;
-  --surface-muted: #101820;
+  --surface: #151c21;
+  --surface-raised: #182126;
+  --surface-muted: #11191f;
   --text: #dbe7eb;
   --text-strong: #f5fafc;
   --muted: #99abb3;
@@ -66,12 +64,10 @@
   --danger-soft: rgba(242, 116, 116, 0.16);
   --info: #87b9ff;
   --info-soft: rgba(135, 185, 255, 0.16);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: none;
   --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.28);
 
-  background:
-    radial-gradient(circle at 18% 0%, rgba(79, 178, 189, 0.12), transparent 32%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+  background: var(--bg);
 }
 
 * {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAnalyticsOverview, getEtaHistory, getShipments, getWebhookAttempts } from '../api'
+import MetricStrip from '../components/MetricStrip'
 
 function OperationsDashboardPage() {
     const [shipments, setShipments] = useState([])
@@ -35,11 +36,10 @@ function OperationsDashboardPage() {
 
     return (
         <section className="role-page">
-            <div className="role-hero operations-hero">
+            <div className="command-bar operations-hero">
                 <div>
                     <p className="eyebrow">Operations control room</p>
-                    <h2>Watch exceptions, telemetry, webhooks, and ETA drift.</h2>
-                    <p>For dispatch and support operators who monitor the live system and intervene when freight leaves the happy path.</p>
+                    <h2>Exception desk</h2>
                 </div>
                 <div className="hero-actions">
                     <Link className="text-action" to="/operations/webhooks">Webhook ops</Link>
@@ -49,13 +49,15 @@ function OperationsDashboardPage() {
 
             {error && <p className="error-text">{error}</p>}
 
-            <div className="metrics-grid">
-                <div className="metric-card"><span>System loads</span><strong>{overview?.totalShipments ?? shipments.length}</strong></div>
-                <div className="metric-card"><span>Late loads</span><strong>{overview?.lateShipments ?? exceptionQueue.length}</strong></div>
-                <div className="metric-card"><span>Active trucks</span><strong>{overview?.activeTrucks ?? 'N/A'}</strong></div>
-                <div className="metric-card"><span>Webhook incidents</span><strong>{failedWebhooks.length}</strong></div>
-                <div className="metric-card"><span>ETA recalcs</span><strong>{etaHistory.length}</strong></div>
-            </div>
+            <MetricStrip
+                items={[
+                    { label: 'System loads', value: overview?.totalShipments ?? shipments.length },
+                    { label: 'Late loads', value: overview?.lateShipments ?? exceptionQueue.length, tone: exceptionQueue.length ? 'risk' : '' },
+                    { label: 'Active trucks', value: overview?.activeTrucks ?? 'N/A' },
+                    { label: 'Webhook incidents', value: failedWebhooks.length, tone: failedWebhooks.length ? 'risk' : '' },
+                    { label: 'ETA recalcs', value: etaHistory.length }
+                ]}
+            />
 
             <div className="role-grid">
                 <div className="panel">

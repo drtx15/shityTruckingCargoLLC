@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getShipments, getTrucks } from '../api'
+import MetricStrip from '../components/MetricStrip'
 
 function FleetDashboardPage() {
     const [trucks, setTrucks] = useState([])
@@ -33,11 +34,10 @@ function FleetDashboardPage() {
 
     return (
         <section className="role-page">
-            <div className="role-hero fleet-hero">
+            <div className="command-bar fleet-hero">
                 <div>
                     <p className="eyebrow">Fleet manager workspace</p>
-                    <h2>See capacity, truck status, and delivery handoff work.</h2>
-                    <p>For the fleet manager who decides which truck can move which load and keeps drivers out of overload trouble.</p>
+                    <h2>Fleet board</h2>
                 </div>
                 <div className="hero-actions">
                     <Link className="text-action" to="/fleet/trucks">Manage fleet</Link>
@@ -47,13 +47,15 @@ function FleetDashboardPage() {
 
             {error && <p className="error-text">{error}</p>}
 
-            <div className="metrics-grid">
-                <div className="metric-card"><span>Total trucks</span><strong>{stats.total}</strong></div>
-                <div className="metric-card"><span>Idle trucks</span><strong>{stats.idle}</strong></div>
-                <div className="metric-card"><span>Active trucks</span><strong>{stats.active}</strong></div>
-                <div className="metric-card"><span>High-load trucks</span><strong>{stats.overloadedRisk}</strong></div>
-                <div className="metric-card"><span>Assigned loads</span><strong>{stats.assignedLoads}</strong></div>
-            </div>
+            <MetricStrip
+                items={[
+                    { label: 'Total trucks', value: stats.total },
+                    { label: 'Idle trucks', value: stats.idle },
+                    { label: 'Active trucks', value: stats.active },
+                    { label: 'High-load trucks', value: stats.overloadedRisk, tone: stats.overloadedRisk ? 'risk' : '' },
+                    { label: 'Assigned loads', value: stats.assignedLoads }
+                ]}
+            />
 
             <div className="role-grid">
                 <div className="panel">

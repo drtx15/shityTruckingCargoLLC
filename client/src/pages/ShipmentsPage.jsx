@@ -17,6 +17,7 @@ function ShipmentsPage({
     title = 'Shipments',
     createTo = '/shipments/new',
     detailBasePath = '/shipments',
+    loadBoardMode = false,
     listTitle = 'Shipment dashboard'
 }) {
     const [shipments, setShipments] = useState([])
@@ -47,9 +48,12 @@ function ShipmentsPage({
             const statusMatches = filters.status === 'all' || shipment.status === filters.status
             const priorityMatches = filters.priority === 'all' || shipment.priority === filters.priority
             const queryMatches = !query || haystack.includes(query)
-            return statusMatches && priorityMatches && queryMatches
+            const marketplaceMatches = !loadBoardMode || (
+                !shipment.assignedTruck && !['ARRIVED', 'CANCELLED'].includes(shipment.status)
+            )
+            return statusMatches && priorityMatches && queryMatches && marketplaceMatches
         })
-    }, [filters, shipments])
+    }, [filters, loadBoardMode, shipments])
 
     return (
         <section className="page-stack">

@@ -68,8 +68,29 @@ export function verifyLoginCode(email, code) {
     })
 }
 
+export function loginWithPassword(email, password) {
+    return request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+    })
+}
+
+export function registerAccount(payload) {
+    return request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    })
+}
+
 export function getMe(options = {}) {
     return request('/auth/me', options)
+}
+
+export function updateMe(payload) {
+    return request('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+    })
 }
 
 export function getUsers(options = {}) {

@@ -12,21 +12,46 @@ datasource db {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  email     String     @unique
-  password  String?
-  role      UserRole   @default(CUSTOMER)
-  shipperId Int?
-  shipper   Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
-  truckId   Int?
-  truck     Truck?     @relation(fields: [truckId], references: [id], onDelete: SetNull)
-  authCodes AuthCode[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id               Int        @id @default(autoincrement())
+  email            String     @unique
+  password         String?
+  displayName      String?
+  avatarUrl        String?
+  title            String?
+  organizationName String?
+  organizationId   Int?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationRole OrganizationUserRole @default(OWNER)
+  role             UserRole   @default(CUSTOMER)
+  shipperId        Int?
+  shipper          Shipper?   @relation(fields: [shipperId], references: [id], onDelete: SetNull)
+  truckId          Int?
+  truck            Truck?     @relation(fields: [truckId], references: [id], onDelete: SetNull)
+  authCodes        AuthCode[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@index([role])
+  @@index([organizationId])
   @@index([shipperId])
   @@index([truckId])
+}
+
+model Organization {
+  id                 Int                @id @default(autoincrement())
+  legalName          String
+  type               OrganizationType
+  dotNumber          String?
+  docketPrefix       DocketPrefix?
+  docketNumber       String?
+  verificationStatus VerificationStatus @default(PENDING_REVIEW)
+  users              User[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([type, verificationStatus])
+  @@index([dotNumber])
+  @@index([docketPrefix, docketNumber])
 }
 
 model Shipper {
@@ -215,6 +240,36 @@ enum UserRole {
   FLEET_MANAGER
   BROKER
   ADMIN
+}
+
+enum OrganizationType {
+  SHIPPER
+  CARRIER
+  BROKER
+  PLATFORM
+}
+
+enum OrganizationUserRole {
+  OWNER
+  MANAGER
+  DISPATCHER
+  DRIVER
+  ACCOUNTING
+  VIEWER
+}
+
+enum VerificationStatus {
+  NOT_REQUIRED
+  PENDING_REVIEW
+  VERIFIED
+  NEEDS_ATTENTION
+  REJECTED
+}
+
+enum DocketPrefix {
+  MC
+  FF
+  MX
 }
 
 enum TruckStatus {

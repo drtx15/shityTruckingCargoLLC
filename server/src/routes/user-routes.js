@@ -1,10 +1,11 @@
 const { ROLES } = require('../services/role-access-service')
 const { toSafeUser } = require('../services/auth-code-service')
+const { persistAvatarValue } = require('../services/avatar-service')
 
 async function userRoutes(app) {
     app.get('/', { preHandler: app.authorize([ROLES.ADMIN]) }, async () => {
         const users = await app.prisma.user.findMany({
-            include: { shipper: true, truck: true },
+            include: { organization: true, shipper: true, truck: true },
             orderBy: { email: 'asc' }
         })
 
@@ -17,6 +18,34 @@ async function userRoutes(app) {
 
         if (Object.values(ROLES).includes(request.body?.role)) {
             patch.role = request.body.role
+        }
+
+        if (typeof request.body?.displayName === 'string') {
+            patch.displayName = request.body.displayName.trim() || null
+        }
+
+        if (typeof request.body?.avatarUrl === 'string') {
+            try {
+                patch.avatarUrl = await persistAvatarValue(request.body.avatarUrl)
+            } catch (error) {
+                return reply.code(400).send({ message: error.message })
+            }
+        }
+
+        if (typeof request.body?.title === 'string') {
+            patch.title = request.body.title.trim() || null
+        }
+
+        if (typeof request.body?.organizationName === 'string') {
+            patch.organizationName = request.body.organizationName.trim() || null
+        }
+
+        if (['OWNER', 'MANAGER', 'DISPATCHER', 'DRIVER', 'ACCOUNTING', 'VIEWER'].includes(request.body?.organizationRole)) {
+            patch.organizationRole = request.body.organizationRole
+        }
+
+        if ('organizationId' in (request.body || {})) {
+            patch.organizationId = request.body.organizationId ? Number(request.body.organizationId) : null
         }
 
         if ('shipperId' in (request.body || {})) {
@@ -35,7 +64,7 @@ async function userRoutes(app) {
             const user = await app.prisma.user.update({
                 where: { id },
                 data: patch,
-                include: { shipper: true, truck: true }
+                include: { organization: true, shipper: true, truck: true }
             })
 
             return toSafeUser(user)

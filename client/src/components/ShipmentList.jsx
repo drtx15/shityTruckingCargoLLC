@@ -6,15 +6,7 @@ import {
     IconLink,
     SearchIcon,
 } from './IconControls'
-
-const statusMeta = {
-    PENDING: { label: 'Created', className: 'status-created' },
-    ASSIGNED: { label: 'Assigned', className: 'status-assigned' },
-    IN_TRANSIT: { label: 'In Transit', className: 'status-in-transit' },
-    DELAYED: { label: 'Delayed', className: 'status-delayed' },
-    CANCELLED: { label: 'Cancelled', className: 'status-paused' },
-    ARRIVED: { label: 'Delivered', className: 'status-delivered' }
-}
+import StatusIndicator from './StatusIndicator'
 
 function formatRelativeTime(value) {
     if (!value) {
@@ -77,11 +69,11 @@ function ShipmentList({
                             onChange={(event) => updateFilters({ status: event.target.value })}
                         >
                             <option value="all">All statuses</option>
-                            <option value="created">Created</option>
-                            <option value="assigned">Assigned</option>
-                            <option value="in_transit">In transit</option>
+                            <option value="PENDING">Created</option>
+                            <option value="ASSIGNED">Assigned</option>
+                            <option value="IN_TRANSIT">In transit</option>
                             <option value="DELAYED">Delayed</option>
-                            <option value="delivered">Delivered</option>
+                            <option value="ARRIVED">Delivered</option>
                         </select>
                         <IconButton
                             type="button"
@@ -118,7 +110,6 @@ function ShipmentList({
                         <span>Actions</span>
                     </div>
                     {shipments.map((shipment) => {
-                        const statusInfo = statusMeta[shipment.status] || statusMeta.PENDING
                         const assignedTruck = shipment.assignedTruck
                         const lastUpdate = shipment.updatedAt || shipment.createdAt
                         const etaText = shipment.etaMinutes !== null && shipment.etaMinutes !== undefined
@@ -138,8 +129,8 @@ function ShipmentList({
                                 </Link>
 
                                 <div className="shipment-cell">
-                                    <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
-                                    {shipment.isPaused && <span className="status-badge status-paused">Paused</span>}
+                                    <StatusIndicator status={shipment.status} />
+                                    {shipment.isPaused && <StatusIndicator label="Paused" className="status-paused" />}
                                 </div>
 
                                 <div className="shipment-cell">

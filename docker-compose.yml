@@ -52,6 +52,8 @@ services:
   backend-a:
     build: ./server
     environment: *backend-env
+    volumes:
+      - avatar_uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -60,7 +62,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -68,6 +70,8 @@ services:
   backend-b:
     build: ./server
     environment: *backend-env
+    volumes:
+      - avatar_uploads:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -76,7 +80,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -108,7 +112,7 @@ services:
 
   migrate:
     build: ./server
-    command: ["sh", "-c", "npm run prisma:deploy && npm run seed"]
+    command: ["npm", "run", "prisma:deploy"]
     environment: *backend-env
     depends_on:
       postgres:
@@ -204,6 +208,7 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  avatar_uploads:
   prometheus_data:
   grafana_data:
   loki_data:

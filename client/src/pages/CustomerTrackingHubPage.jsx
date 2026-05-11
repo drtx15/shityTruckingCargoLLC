@@ -15,11 +15,10 @@ function CustomerTrackingHubPage() {
 
     return (
         <section className="role-page">
-            <div className="role-hero customer-hero">
+            <div className="command-bar customer-hero">
                 <div>
                     <p className="eyebrow">Customer tracking</p>
-                    <h2>One public shipment view, no internal operations exposed.</h2>
-                    <p>For recipients and customer-service users who only need safe tracking status, ETA, and checkpoint visibility.</p>
+                    <h2>Public shipment lookup</h2>
                 </div>
             </div>
 

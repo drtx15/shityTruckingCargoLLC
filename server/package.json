@@ -10,6 +10,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "admin:create": "node scripts/create-admin.js",
     "seed": "node prisma/seed.js",
     "test": "node --test"
   },

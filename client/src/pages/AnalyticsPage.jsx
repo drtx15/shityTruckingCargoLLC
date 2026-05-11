@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAnalyticsOverview } from '../api'
+import MetricStrip from '../components/MetricStrip'
 
 function formatPercent(value) {
     if (value === null || value === undefined) return 'N/A'
@@ -25,15 +26,17 @@ function AnalyticsPage() {
                     <h2>Analytics</h2>
                 </div>
             </div>
-            <div className="metrics-grid">
-                <div className="metric-card"><span>Total shipments</span><strong>{overview.totalShipments}</strong></div>
-                <div className="metric-card"><span>Late shipments</span><strong>{overview.lateShipments}</strong></div>
-                <div className="metric-card"><span>Delivered</span><strong>{overview.deliveredShipments}</strong></div>
-                <div className="metric-card"><span>Active trucks</span><strong>{overview.activeTrucks}</strong></div>
-                <div className="metric-card"><span>Webhook success</span><strong>{formatPercent(overview.webhookSuccessRate)}</strong></div>
-                <div className="metric-card"><span>Fleet utilization</span><strong>{formatPercent(overview.fleetUtilization)}</strong></div>
-                <div className="metric-card"><span>Avg ETA error</span><strong>{overview.averageEtaAccuracyMinutes === null ? 'N/A' : `${overview.averageEtaAccuracyMinutes.toFixed(1)} min`}</strong></div>
-            </div>
+            <MetricStrip
+                items={[
+                    { label: 'Total shipments', value: overview.totalShipments },
+                    { label: 'Late shipments', value: overview.lateShipments, tone: overview.lateShipments ? 'risk' : '' },
+                    { label: 'Delivered', value: overview.deliveredShipments },
+                    { label: 'Active trucks', value: overview.activeTrucks },
+                    { label: 'Webhook success', value: formatPercent(overview.webhookSuccessRate) },
+                    { label: 'Fleet utilization', value: formatPercent(overview.fleetUtilization) },
+                    { label: 'Avg ETA error', value: overview.averageEtaAccuracyMinutes === null ? 'N/A' : `${overview.averageEtaAccuracyMinutes.toFixed(1)} min` }
+                ]}
+            />
         </section>
     )
 }

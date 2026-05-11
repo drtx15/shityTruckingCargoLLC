@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getPublicTracking, openTrackingSocket } from '../api'
+import MetricStrip from '../components/MetricStrip'
+import StatusIndicator from '../components/StatusIndicator'
 import StatusTimeline from '../components/StatusTimeline'
+import { ClockIcon, FlagIcon, SignalIcon, TruckIcon } from '../components/IconControls'
 import TrackingMap from '../map/TrackingMap'
 
 function PublicTrackingPage() {
@@ -52,6 +55,7 @@ function PublicTrackingPage() {
 
     if (error) return <p className="error-text">{error}</p>
     if (!tracking) return <p>Loading public tracking...</p>
+    const isLive = liveState === 'Live'
 
     return (
         <section className="detail-grid public-tracking">
@@ -61,14 +65,16 @@ function PublicTrackingPage() {
                         <p className="eyebrow">{tracking.trackingCode}</p>
                         <h2>{tracking.originLabel || 'Origin'} <span>→</span> {tracking.destinationLabel || 'Destination'}</h2>
                     </div>
-                    <span className="status-badge status-in-transit">{liveState}</span>
+                    <StatusIndicator label={liveState} className="status-in-transit" />
                 </div>
-                <div className="metrics-grid">
-                    <div className="metric-card"><span>Status</span><strong>{tracking.status}</strong></div>
-                    <div className="metric-card"><span>Priority</span><strong>{tracking.priority}</strong></div>
-                    <div className="metric-card"><span>ETA</span><strong>{tracking.etaMinutes ?? 'Pending'} min</strong></div>
-                    <div className="metric-card"><span>Truck</span><strong>{tracking.truck?.label || 'Pending assignment'}</strong></div>
-                </div>
+                <MetricStrip
+                    items={[
+                        { label: 'Stream', value: liveState, icon: SignalIcon, state: isLive ? 'live' : 'warn' },
+                        { label: 'Priority', value: tracking.priority, icon: FlagIcon },
+                        { label: 'ETA', value: `${tracking.etaMinutes ?? 'Pending'} min`, icon: ClockIcon },
+                        { label: 'Truck', value: tracking.truck?.label || 'Pending assignment', icon: TruckIcon }
+                    ]}
+                />
             </div>
             <TrackingMap route={tracking.route} truck={tracking.truck} heading="Public route map" />
             <StatusTimeline checkpoints={tracking.checkpoints || []} tracking={tracking} activityFeed={[]} />

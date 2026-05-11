@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getTrucks } from '../api'
+import { TruckIcon } from '../components/IconControls'
+import MetricStrip from '../components/MetricStrip'
+import StatusIndicator from '../components/StatusIndicator'
 
 function FleetCapacityPage() {
     const [trucks, setTrucks] = useState([])
@@ -23,20 +26,30 @@ function FleetCapacityPage() {
                 </div>
             </div>
             {error && <p className="error-text">{error}</p>}
-            <div className="metrics-grid">
-                <div className="metric-card"><span>Total capacity</span><strong>{Math.round(totals.max)} kg</strong></div>
-                <div className="metric-card"><span>Current load</span><strong>{Math.round(totals.load)} kg</strong></div>
-                <div className="metric-card"><span>Utilization</span><strong>{totals.max ? `${Math.round((totals.load / totals.max) * 100)}%` : '0%'}</strong></div>
-            </div>
-            <div className="panel data-list">
-                {trucks.map((truck) => (
-                    <div key={truck.id} className="data-row compact-row">
-                        <strong>{truck.label}</strong>
-                        <span>{Math.round(truck.currentLoadKg || 0)} kg loaded</span>
-                        <span>{Math.round(truck.maxWeightKg || 0)} kg max</span>
-                        <span>{truck.status}</span>
-                    </div>
-                ))}
+            <MetricStrip
+                items={[
+                    { label: 'Total capacity', value: `${Math.round(totals.max)} kg`, icon: TruckIcon },
+                    { label: 'Current load', value: `${Math.round(totals.load)} kg` },
+                    { label: 'Utilization', value: totals.max ? `${Math.round((totals.load / totals.max) * 100)}%` : '0%' }
+                ]}
+            />
+            <div className="panel">
+                <div className="table-header">
+                    <span>Truck</span>
+                    <span>Loaded</span>
+                    <span>Max</span>
+                    <span>Status</span>
+                </div>
+                <div className="data-list">
+                    {trucks.map((truck) => (
+                        <div key={truck.id} className="data-row compact-row">
+                            <strong>{truck.label}</strong>
+                            <span>{Math.round(truck.currentLoadKg || 0)} kg loaded</span>
+                            <span>{Math.round(truck.maxWeightKg || 0)} kg max</span>
+                            <StatusIndicator status={truck.status} />
+                        </div>
+                    ))}
+                </div>
             </div>
         </section>
     )

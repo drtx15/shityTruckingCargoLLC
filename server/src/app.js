@@ -15,6 +15,8 @@ const internalRoutes = require('./routes/internal-routes')
 const trackingWsRoutes = require('./routes/tracking-ws-routes')
 const webhookRoutes = require('./routes/webhook-routes')
 const userRoutes = require('./routes/user-routes')
+const healthRoutes = require('./routes/health-routes')
+const uploadRoutes = require('./routes/upload-routes')
 
 function buildApp() {
     const app = fastify({ logger: true })
@@ -42,7 +44,8 @@ function buildApp() {
     app.register(metricsPlugin)
     app.register(rateLimitPlugin)
 
-    app.get('/health', async () => ({ status: 'ok' }))
+    app.register(healthRoutes)
+    app.register(uploadRoutes)
     app.get('/openapi.json', async () => app.swagger())
 
     app.register(authRoutes, { prefix: '/auth' })

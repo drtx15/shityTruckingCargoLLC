@@ -69,7 +69,7 @@ async function trackingWsRoutes(app) {
                 const claims = app.jwt.verify(token)
                 const dbUser = await app.prisma.user.findUnique({
                     where: { id: Number(claims.userId) },
-                    include: { shipper: true, truck: true }
+                    include: { organization: true, shipper: true, truck: true }
                 })
                 user = toSafeUser(dbUser)
             } catch (error) {

@@ -49,6 +49,21 @@ function toSafeUser(user) {
     return {
         id: user.id,
         email: user.email,
+        displayName: user.displayName || null,
+        avatarUrl: user.avatarUrl || null,
+        title: user.title || null,
+        organizationName: user.organizationName || null,
+        organizationId: user.organizationId || null,
+        organizationRole: user.organizationRole || null,
+        organization: user.organization ? {
+            id: user.organization.id,
+            legalName: user.organization.legalName,
+            type: user.organization.type,
+            dotNumber: user.organization.dotNumber || null,
+            docketPrefix: user.organization.docketPrefix || null,
+            docketNumber: user.organization.docketNumber || null,
+            verificationStatus: user.organization.verificationStatus
+        } : null,
         role: user.role,
         shipperId: user.shipperId || null,
         truckId: user.truckId || null,
@@ -70,16 +85,27 @@ function buildTokenPayload(user) {
         userId: user.id,
         email: user.email,
         role: user.role,
+        ...(user.displayName ? { displayName: user.displayName } : {}),
+        ...(user.organizationName ? { organizationName: user.organizationName } : {}),
+        ...(user.organizationId ? { organizationId: user.organizationId } : {}),
+        ...(user.organizationRole ? { organizationRole: user.organizationRole } : {}),
         ...(user.shipperId ? { shipperId: user.shipperId } : {}),
         ...(user.truckId ? { truckId: user.truckId } : {})
     }
+}
+
+async function findUserForEmail(prisma, email) {
+    return prisma.user.findUnique({
+        where: { email: normalizeEmail(email) },
+        include: { organization: true, shipper: true, truck: true }
+    })
 }
 
 async function findOrProvisionUserForEmail(prisma, email) {
     const normalizedEmail = normalizeEmail(email)
     let user = await prisma.user.findUnique({
         where: { email: normalizedEmail },
-        include: { shipper: true, truck: true }
+        include: { organization: true, shipper: true, truck: true }
     })
 
     if (user) {
@@ -102,10 +128,11 @@ async function findOrProvisionUserForEmail(prisma, email) {
     user = await prisma.user.create({
         data: {
             email: normalizedEmail,
+            organizationName: shipper.companyName,
             role: ROLES.CUSTOMER,
             shipperId: shipper.id
         },
-        include: { shipper: true, truck: true }
+        include: { organization: true, shipper: true, truck: true }
     })
 
     return user
@@ -152,7 +179,10 @@ async function requestLoginCode(app, email) {
         throw new Error('Valid email is required')
     }
 
-    const user = await findOrProvisionUserForEmail(app.prisma, normalizedEmail)
+    const user = await findUserForEmail(app.prisma, normalizedEmail)
+    if (!user) {
+        throw new Error('Account not found')
+    }
     const code = generateLoginCode()
     const now = new Date()
     const expiresAt = new Date(now.getTime() + config.authCodeTtlMinutes * 60 * 1000)
@@ -194,7 +224,7 @@ async function verifyLoginCode(app, email, code) {
         },
         include: {
             user: {
-                include: { shipper: true, truck: true }
+                include: { organization: true, shipper: true, truck: true }
             }
         },
         orderBy: { createdAt: 'desc' }
@@ -219,7 +249,10 @@ async function verifyLoginCode(app, email, code) {
         data: { consumedAt }
     })
 
-    const user = challenge.user || await findOrProvisionUserForEmail(app.prisma, normalizedEmail)
+    const user = challenge.user
+    if (!user) {
+        throw new Error('Account not found')
+    }
     const token = app.jwt.sign(buildTokenPayload(user))
 
     return {
@@ -231,6 +264,7 @@ async function verifyLoginCode(app, email, code) {
 module.exports = {
     MAX_AUTH_ATTEMPTS,
     buildTokenPayload,
+    findUserForEmail,
     findOrProvisionUserForEmail,
     generateLoginCode,
     hashLoginCode,

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getShipments, getTracking, openTrackingSocket } from '../api'
+import MetricStrip from '../components/MetricStrip'
+import { ClockIcon, SignalIcon, SpeedometerIcon, TruckIcon } from '../components/IconControls'
 import TrackingMap from '../map/TrackingMap'
 
 function DriverRoadPage() {
@@ -65,10 +67,10 @@ function DriverRoadPage() {
 
     return (
         <section className="role-page">
-            <div className="role-hero fleet-hero">
+            <div className="command-bar fleet-hero">
                 <div>
                     <p className="eyebrow">Driver workspace</p>
-                    <h2>Your assigned road, ETA, and delivery handoff.</h2>
+                    <h2>Assigned road</h2>
                     <p>{selectedShipment ? `${selectedShipment.originLabel || 'Origin'} to ${selectedShipment.destinationLabel || 'Destination'}` : 'No assigned active load.'}</p>
                 </div>
                 <label className="role-select">
@@ -85,12 +87,14 @@ function DriverRoadPage() {
             {error && <p className="error-text">{error}</p>}
             {tracking ? (
                 <>
-                    <div className="metrics-grid">
-                        <div className="metric-card"><span>Status</span><strong>{tracking.status}</strong></div>
-                        <div className="metric-card"><span>ETA</span><strong>{tracking.etaMinutes ?? 'Pending'} min</strong></div>
-                        <div className="metric-card"><span>Truck</span><strong>{tracking.truck?.label || 'Assigned truck'}</strong></div>
-                        <div className="metric-card"><span>Speed</span><strong>{tracking.truck?.currentSpeed == null ? 'Waiting GPS' : `${Math.round(tracking.truck.currentSpeed)} kph`}</strong></div>
-                    </div>
+                    <MetricStrip
+                        items={[
+                            { label: 'Status', value: tracking.status, icon: SignalIcon, state: tracking.status === 'IN_TRANSIT' ? 'live' : '' },
+                            { label: 'ETA', value: `${tracking.etaMinutes ?? 'Pending'} min`, icon: ClockIcon },
+                            { label: 'Truck', value: tracking.truck?.label || 'Assigned truck', icon: TruckIcon },
+                            { label: 'Speed', value: tracking.truck?.currentSpeed == null ? 'Waiting GPS' : `${Math.round(tracking.truck.currentSpeed)} kph`, icon: SpeedometerIcon }
+                        ]}
+                    />
                     <TrackingMap route={{ ...tracking.route, etaMinutes: tracking.etaMinutes }} truck={tracking.truck} heading="Road view" />
                     <Link className="text-action" to="/driver/proof-of-delivery">Submit proof of delivery</Link>
                 </>

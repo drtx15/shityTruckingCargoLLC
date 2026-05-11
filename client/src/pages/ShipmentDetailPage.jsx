@@ -12,17 +12,22 @@ import {
 } from '../api'
 import StatusTimeline from '../components/StatusTimeline'
 import TrackingMap from '../map/TrackingMap'
-import { ArrowLeftIcon, IconButton, IconLink, PauseIcon, PlayIcon, TrashIcon } from '../components/IconControls'
+import {
+    ArrowLeftIcon,
+    ClockIcon,
+    IconButton,
+    IconLink,
+    PauseIcon,
+    PlayIcon,
+    RouteIcon,
+    SignalIcon,
+    SpeedometerIcon,
+    TrashIcon,
+    TruckIcon
+} from '../components/IconControls'
 import { getRoleHome, useAuth } from '../auth'
-
-const statusMeta = {
-    PENDING: { label: 'Created', className: 'status-created' },
-    ASSIGNED: { label: 'Assigned', className: 'status-assigned' },
-    IN_TRANSIT: { label: 'In Transit', className: 'status-in-transit' },
-    DELAYED: { label: 'Delayed', className: 'status-delayed' },
-    CANCELLED: { label: 'Cancelled', className: 'status-paused' },
-    ARRIVED: { label: 'Delivered', className: 'status-delivered' }
-}
+import MetricStrip from '../components/MetricStrip'
+import StatusIndicator from '../components/StatusIndicator'
 
 function haversineKm(lat1, lng1, lat2, lng2) {
     const toRad = (value) => (value * Math.PI) / 180
@@ -48,7 +53,7 @@ function formatCountdown(etaMinutes) {
         return `${Math.round(etaMinutes)} min`
     }
 
-    return `${Math.round(etaMinutes / 60)} h ${Math.round(etaMinutes % 60)} m`
+    return `${Math.round(etaMinutes / 60)}h ${Math.round(etaMinutes % 60)}m`
 }
 
 function formatTelemetryAge(value) {
@@ -124,6 +129,7 @@ function ShipmentDetailPage() {
     const [liveState, setLiveState] = useState('Connecting')
     const [error, setError] = useState('')
     const [actionError, setActionError] = useState('')
+    const [copyUrlState, setCopyUrlState] = useState('')
     const loadAbortRef = useRef(null)
     const canAssignTruck = ['DISPATCHER', 'FLEET_MANAGER', 'ADMIN'].includes(user?.role)
     const canPauseShipment = ['DISPATCHER', 'ADMIN'].includes(user?.role)
@@ -170,9 +176,7 @@ function ShipmentDetailPage() {
 
 
 
-    const handleAssignTruck = async (event) => {
-        const truckId = Number(event.target.value)
-
+    const handleAssignTruck = async (truckId) => {
         if (!truckId) {
             return
         }
@@ -181,7 +185,6 @@ function ShipmentDetailPage() {
             await assignTruck(id, truckId)
             await load()
             setActionError('')
-            event.target.value = ''
         } catch (assignError) {
             setActionError(assignError.message)
         }
@@ -218,6 +221,21 @@ function ShipmentDetailPage() {
             window.location.href = backTo
         } catch (deleteError) {
             setActionError(deleteError.message)
+        }
+    }
+
+    const handleCopyTrackingUrl = async () => {
+        if (!tracking?.trackingCode || typeof window === 'undefined') {
+            return
+        }
+
+        const url = `${window.location.origin}/track/${tracking.trackingCode}`
+        try {
+            await window.navigator.clipboard.writeText(url)
+            setCopyUrlState('Copied')
+            window.setTimeout(() => setCopyUrlState(''), 1400)
+        } catch {
+            setCopyUrlState('Copy failed')
         }
     }
 
@@ -263,6 +281,50 @@ function ShipmentDetailPage() {
         ? formatCountdown(tracking.etaMinutes)
         : 'Pending'
     const lastUpdateValue = tracking?.truck?.lastUpdatedAt || tracking?.updatedAt || tracking?.createdAt || Date.now()
+    const lastUpdateDate = new Date(lastUpdateValue).toLocaleString()
+    const isLive = liveState === 'Live'
+    const hasGps = Boolean(tracking?.truck?.lastUpdatedAt)
+    const publicTrackingUrl = tracking?.trackingCode && typeof window !== 'undefined'
+        ? `${window.location.origin}/track/${tracking.trackingCode}`
+        : 'Pending'
+    const detailMetricItems = [
+        {
+            label: 'Connection',
+            value: liveState,
+            meta: isLive ? 'WebSocket stream' : 'Waiting for stream',
+            icon: SignalIcon,
+            state: isLive ? 'live' : 'warn'
+        },
+        { label: 'Truck', value: tracking?.truck?.label || 'Unassigned', meta: tracking?.truck?.driverName || 'No driver linked', icon: TruckIcon },
+        { label: 'Speed', value: truckSpeedText, icon: SpeedometerIcon },
+        { label: 'ETA', value: remainingEta, icon: ClockIcon },
+        {
+            label: 'Remaining',
+            value: distanceRemainingKm !== null
+                ? `${distanceRemainingKm.toFixed(1)} km`
+                : tracking?.truck
+                    ? 'Awaiting GPS'
+                    : 'Unassigned',
+            icon: RouteIcon
+        },
+        {
+            label: 'Telemetry',
+            value: hasGps ? 'GPS linked' : 'No fix',
+            meta: truckTelemetryLabel,
+            icon: TruckIcon,
+            state: hasGps ? 'live' : 'warn'
+        },
+        { label: 'Last update', value: formatTelemetryAge(lastUpdateValue), meta: lastUpdateDate, icon: ClockIcon }
+    ]
+    const assignedTruckId = tracking?.truck?.id
+    const truckById = new Map(trucks.map((truck) => [truck.id, truck]))
+    const assignmentCandidates = (suggestions.length ? suggestions : trucks)
+        .map((truck) => ({
+            ...truckById.get(truck.id),
+            ...truck
+        }))
+        .filter((truck) => truck.id && truck.id !== assignedTruckId)
+        .slice(0, 5)
 
     if (error) {
         return (
@@ -282,121 +344,117 @@ function ShipmentDetailPage() {
     }
 
     return (
-        <section className="detail-grid">
-            <div className="detail-topbar">
-                <IconLink to={backTo} icon={ArrowLeftIcon} label="Back to workspace" className="icon-link--soft" />
-                <span className={`status-badge ${(statusMeta[tracking.status] || statusMeta.PENDING).className}`}>
-                    {(statusMeta[tracking.status] || statusMeta.PENDING).label}
-                </span>
-            </div>
-
-            <div className="panel detail-summary">
-                <div className="detail-summary-head">
-                    <div>
+        <section className="detail-grid load-detail-page">
+            <div className="panel detail-summary load-control-panel">
+                <div className="load-command-row">
+                    <IconLink to={backTo} icon={ArrowLeftIcon} label="Back to workspace" className="icon-link--soft" />
+                    <div className="load-route-copy">
                         <p className="eyebrow">{tracking.trackingCode || `Shipment #${tracking.shipmentId}`}</p>
                         <h2>
                             {tracking.originLabel || 'Origin'}
-                            <span>→</span>
+                            <span>to</span>
                             {tracking.destinationLabel || 'Destination'}
                         </h2>
+                        <div className="load-state-line">
+                            <StatusIndicator status={tracking.status} />
+                            <span>{tracking.priority || 'STANDARD'}</span>
+                            <span>{tracking.shipper?.companyName || 'Unassigned shipper'}</span>
+                        </div>
                     </div>
-                    {canPauseShipment && (
-                        <IconButton
-                            type="button"
-                            icon={tracking.isPaused ? PlayIcon : PauseIcon}
-                            label={tracking.isPaused ? 'Resume shipment' : 'Pause shipment'}
-                            className="icon-button--soft"
-                            aria-pressed={tracking.isPaused}
-                            onClick={handlePauseToggle}
-                        />
-                    )}
-                    {canDeleteShipment && (
-                        <IconButton
-                            type="button"
-                            icon={TrashIcon}
-                            label="Delete shipment"
-                            className="icon-button--soft"
-                            onClick={handleDeleteShipment}
-                        />
-                    )}
-                </div>
-
-                <div className="metrics-grid">
-                    <div className="metric-card">
-                        <span>Live state</span>
-                        <strong>{liveState}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Priority</span>
-                        <strong>{tracking.priority || 'STANDARD'}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Shipper</span>
-                        <strong>{tracking.shipper?.companyName || 'Unassigned'}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Current speed</span>
-                        <strong>{truckSpeedText}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>ETA countdown</span>
-                        <strong>{remainingEta}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Distance remaining</span>
-                        <strong>
-                            {truckPosition
-                                ? `${distanceRemainingKm.toFixed(1)} km`
-                                : tracking?.truck
-                                    ? 'Awaiting first GPS update'
-                                    : 'Unassigned'}
-                        </strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Last update</span>
-                        <strong>{new Date(lastUpdateValue).toLocaleString()}</strong>
-                    </div>
-                    <div className="metric-card">
-                        <span>Truck telemetry</span>
-                        <strong>{truckTelemetryLabel}</strong>
+                    <div className="load-command-actions">
+                        {canPauseShipment && (
+                            <IconButton
+                                type="button"
+                                icon={tracking.isPaused ? PlayIcon : PauseIcon}
+                                label={tracking.isPaused ? 'Resume shipment' : 'Pause shipment'}
+                                className="icon-button--soft"
+                                aria-pressed={tracking.isPaused}
+                                onClick={handlePauseToggle}
+                            />
+                        )}
+                        {canDeleteShipment && (
+                            <IconButton
+                                type="button"
+                                icon={TrashIcon}
+                                label="Delete shipment"
+                                className="icon-button--danger"
+                                onClick={handleDeleteShipment}
+                            />
+                        )}
                     </div>
                 </div>
-
-                <div className="detail-controls">
-                    {canAssignTruck && (
-                        <label>
-                            Reassign truck
-                            <select defaultValue="" onChange={handleAssignTruck}>
-                                <option value="">Choose a truck</option>
-                                {trucks.map((truck) => (
-                                    <option key={truck.id} value={truck.id}>
-                                        {truck.label} ({truck.status})
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-                    <label>
-                        Public tracking URL
-                        <input readOnly value={tracking.trackingCode ? `${window.location.origin}/track/${tracking.trackingCode}` : 'Pending'} />
-                    </label>
-                </div>
-
-                {suggestions.length > 0 && (
-                    <div className="suggestion-strip">
-                        {suggestions.slice(0, 3).map((truck) => (
-                            <button key={truck.id} type="button" onClick={() => assignTruck(id, truck.id).then(load).catch((err) => setActionError(err.message))}>
-                                {truck.label} · {truck.reason}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {actionError && <p className="error-text">{actionError}</p>}
             </div>
 
-            <TrackingMap route={{ ...tracking.route, etaMinutes: tracking.etaMinutes }} truck={tracking.truck} heading="Route map" />
-            <StatusTimeline checkpoints={tracking.checkpoints} tracking={tracking} activityFeed={activityFeed} />
+            <div className="load-execution-grid">
+                <TrackingMap route={{ ...tracking.route, etaMinutes: tracking.etaMinutes }} truck={tracking.truck} heading="Route map" />
+                <aside className="load-side-panel">
+                    <div className="panel load-inspector-panel">
+                        <div className="detail-metric-strip">
+                            <MetricStrip items={detailMetricItems} />
+                        </div>
+
+                        {canAssignTruck && (
+                            <div className="dispatch-assignment">
+                                <div className="assignment-head">
+                                    <div>
+                                        <p className="eyebrow">Assignment</p>
+                                        <h3>Truck assignment</h3>
+                                    </div>
+                                </div>
+
+                                <div className="assigned-truck-card">
+                                    <span className="assignment-icon" aria-hidden="true">
+                                        <TruckIcon />
+                                    </span>
+                                    <div>
+                                        <strong>{tracking.truck?.label || 'Unassigned'}</strong>
+                                        <small>{tracking.truck?.driverName || 'No driver linked'}</small>
+                                    </div>
+                                    {tracking.truck?.status && <StatusIndicator status={tracking.truck.status} />}
+                                </div>
+
+                                <div className="assignment-candidates">
+                                    <span>Available matches</span>
+                                    {assignmentCandidates.length ? assignmentCandidates.map((truck) => (
+                                        <button
+                                            key={truck.id}
+                                            type="button"
+                                            className="assignment-candidate"
+                                            onClick={() => handleAssignTruck(truck.id)}
+                                        >
+                                            <span>
+                                                <strong>{truck.label}</strong>
+                                                <small>{truck.driverName || truck.reason || 'No driver linked'}</small>
+                                            </span>
+                                            <StatusIndicator status={truck.status || 'IDLE'} />
+                                        </button>
+                                    )) : (
+                                        <p className="form-note">No alternate trucks available.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="dispatch-actions-row">
+                            <label className="tracking-url-field">
+                                Public tracking URL
+                                <span className="copy-field">
+                                    <input readOnly value={publicTrackingUrl} />
+                                    <button type="button" className="secondary-button compact-action" onClick={handleCopyTrackingUrl}>
+                                        {copyUrlState || 'Copy'}
+                                    </button>
+                                </span>
+                            </label>
+                        </div>
+
+                        {actionError && <p className="error-text">{actionError}</p>}
+                    </div>
+                </aside>
+            </div>
+
+            <div className="load-progress-panel">
+                <StatusTimeline checkpoints={tracking.checkpoints} tracking={tracking} activityFeed={activityFeed} />
+            </div>
         </section>
     )
 }

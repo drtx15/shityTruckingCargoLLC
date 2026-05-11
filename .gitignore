@@ -13,3 +13,6 @@ __pycache__/
 .venv/
 
 /generated/prisma
+server/uploads/
+ACTION_PLAN.md
+AUDIT_REPORT.md

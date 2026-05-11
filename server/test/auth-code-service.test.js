@@ -81,20 +81,39 @@ function createMockApp() {
     }
 }
 
-test('requestLoginCode provisions a customer and dev code when Resend is not configured', async () => {
+test('requestLoginCode only sends codes to existing accounts', async () => {
     const app = createMockApp()
+    await app.prisma.user.create({
+        data: {
+            email: 'new.customer@drtx.tech',
+            role: 'CUSTOMER'
+        }
+    })
 
     const result = await requestLoginCode(app, 'New.Customer@DRTX.tech')
 
     assert.match(result.devCode, /^\d{6}$/)
-    assert.equal(app.state.shippers.length, 1)
     assert.equal(app.state.users[0].email, 'new.customer@drtx.tech')
     assert.equal(app.state.users[0].role, 'CUSTOMER')
     assert.equal(app.state.authCodes.length, 1)
 })
 
+test('requestLoginCode does not auto-provision unknown emails', async () => {
+    const app = createMockApp()
+
+    await assert.rejects(() => requestLoginCode(app, 'unknown@drtx.tech'), /Account not found/)
+    assert.equal(app.state.users.length, 0)
+    assert.equal(app.state.authCodes.length, 0)
+})
+
 test('verifyLoginCode rejects wrong codes and consumes the correct code', async () => {
     const app = createMockApp()
+    await app.prisma.user.create({
+        data: {
+            email: 'customer@drtx.tech',
+            role: 'CUSTOMER'
+        }
+    })
     const result = await requestLoginCode(app, 'customer@drtx.tech')
 
     await assert.rejects(() => verifyLoginCode(app, 'customer@drtx.tech', '000000'), /invalid or expired/)

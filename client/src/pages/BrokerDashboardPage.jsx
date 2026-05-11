@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getShipments, getShippers } from '../api'
+import MetricStrip from '../components/MetricStrip'
 
 function BrokerDashboardPage() {
     const [shipments, setShipments] = useState([])
@@ -39,11 +40,10 @@ function BrokerDashboardPage() {
 
     return (
         <section className="role-page">
-            <div className="role-hero broker-hero">
+            <div className="command-bar broker-hero">
                 <div>
                     <p className="eyebrow">Broker workspace</p>
-                    <h2>Book loads, protect SLAs, and keep shippers informed.</h2>
-                    <p>For the freight broker who owns customer commitments and coordinates the movement from request to delivery.</p>
+                    <h2>Commercial desk</h2>
                 </div>
                 <div className="hero-actions">
                     <Link className="text-action" to="/broker/orders/new">Create order</Link>
@@ -53,12 +53,14 @@ function BrokerDashboardPage() {
 
             {error && <p className="error-text">{error}</p>}
 
-            <div className="metrics-grid">
-                <div className="metric-card"><span>Open loads</span><strong>{brokerStats.openLoads}</strong></div>
-                <div className="metric-card"><span>Delayed loads</span><strong>{brokerStats.delayedLoads}</strong></div>
-                <div className="metric-card"><span>Urgent loads</span><strong>{brokerStats.urgentLoads}</strong></div>
-                <div className="metric-card"><span>Active shippers</span><strong>{brokerStats.activeShippers}</strong></div>
-            </div>
+            <MetricStrip
+                items={[
+                    { label: 'Open loads', value: brokerStats.openLoads },
+                    { label: 'Delayed loads', value: brokerStats.delayedLoads, tone: brokerStats.delayedLoads ? 'risk' : '' },
+                    { label: 'Urgent loads', value: brokerStats.urgentLoads },
+                    { label: 'Active shippers', value: brokerStats.activeShippers }
+                ]}
+            />
 
             <div className="role-grid">
                 <div className="panel">

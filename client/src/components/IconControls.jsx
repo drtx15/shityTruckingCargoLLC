@@ -75,6 +75,66 @@ export function RouteIcon() {
     )
 }
 
+export function TruckIcon() {
+    return (
+        <BaseIcon>
+            <path d="M3 7h11v8H3z" />
+            <path d="M14 10h3l3 3v2h-6z" />
+            <circle cx="7" cy="17" r="2" />
+            <circle cx="17" cy="17" r="2" />
+        </BaseIcon>
+    )
+}
+
+export function SignalIcon() {
+    return (
+        <BaseIcon>
+            <path d="M4 16.5a9 9 0 0 1 16 0" />
+            <path d="M7.5 15a5.5 5.5 0 0 1 9 0" />
+            <path d="M11 14h2" />
+            <circle cx="12" cy="18" r="1.5" />
+        </BaseIcon>
+    )
+}
+
+export function FlagIcon() {
+    return (
+        <BaseIcon>
+            <path d="M6 20V5" />
+            <path d="M6 5h10l-1.5 4L16 13H6" />
+        </BaseIcon>
+    )
+}
+
+export function BuildingIcon() {
+    return (
+        <BaseIcon>
+            <path d="M5 20V4h10v16" />
+            <path d="M15 9h4v11" />
+            <path d="M8 8h1M11 8h1M8 12h1M11 12h1M8 16h1M11 16h1" />
+        </BaseIcon>
+    )
+}
+
+export function SpeedometerIcon() {
+    return (
+        <BaseIcon>
+            <path d="M5 17a8 8 0 1 1 14 0" />
+            <path d="M12 17l4-5" />
+            <path d="M8 17h8" />
+        </BaseIcon>
+    )
+}
+
+export function ClockIcon() {
+    return (
+        <BaseIcon>
+            <circle cx="12" cy="12" r="8" />
+            <path d="M12 8v5l3 2" />
+        </BaseIcon>
+    )
+}
+
 export function ArrowLeftIcon() {
     return (
         <BaseIcon>

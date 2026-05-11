@@ -6,7 +6,7 @@ const roleHome = {
     CUSTOMER: '/customer/orders',
     DRIVER: '/driver/road',
     DISPATCHER: '/dispatcher/loads',
-    FLEET_MANAGER: '/fleet/trucks',
+    FLEET_MANAGER: '/fleet/load-board',
     BROKER: '/broker/dashboard',
     ADMIN: '/admin/analytics'
 }
