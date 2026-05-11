@@ -80,7 +80,6 @@ async function persistAvatarValue(value) {
     if (hasObjectStorage()) {
         const key = `avatars/${crypto.randomUUID()}.${extension}`
         await getS3Client().send(new PutObjectCommand({
-            ACL: 'public-read',
             Body: buffer,
             Bucket: config.objectStorage.bucket,
             CacheControl: 'public, max-age=31536000, immutable',

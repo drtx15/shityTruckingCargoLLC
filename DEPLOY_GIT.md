@@ -1,19 +1,21 @@
-# Git-Based Droplet Deployment
+# Git-Based Droplet Deployment Runbook
 
-This is the locked deployment plan for the current non-Kubernetes setup. No container registry is required. Each droplet clones the same Git repository, then runs only the service assigned to that droplet with Docker Compose.
+This is the locked non-Kubernetes deployment plan. No container registry is required. Every droplet clones the same Git repository, then runs only its assigned Docker Compose file.
 
-## Locked Topology
+Use this file as a checklist. Do the sections in order.
 
-| Droplet | Service | Public ports |
-|---|---|---|
-| `client-gateway` | React static app + nginx gateway/load balancer | `80`, later `443` |
-| `api-1` | Fastify API | `3000` only from gateway |
-| `api-2` | Fastify API | `3000` only from gateway |
-| `worker-1` | Telemetry/background worker | none, optional `3001` health |
-| `worker-2` | Telemetry/background worker | none, optional `3001` health |
-| `simulator-provider` | Standalone telematics provider API | `8001` only from API/workers |
-| `postgres` | Postgres + MinIO object storage containers | `5432` only from API/workers; `9000` from API/client-gateway; `9001` only from your IP |
-| `redis-rabbitmq` | Redis + RabbitMQ containers | `6379`, `5672`; `15672` only from your IP |
+## 0. Big Picture
+
+| Droplet | Service | Compose path | Public ports |
+|---|---|---|---|
+| `postgres` | Postgres + MinIO object storage | `infra/postgres/docker-compose.yml` | `5432`, `9000`, optional `9001` |
+| `redis-rabbitmq` | Redis + RabbitMQ | `infra/queue/docker-compose.yml` | `6379`, `5672`, optional `15672` |
+| `simulator-provider` | Standalone telematics API | `simulator/docker-compose.yml` | `8001` |
+| `api-1` | Fastify API replica 1 | `server/docker-compose.api.yml` | `3000` |
+| `api-2` | Fastify API replica 2 | `server/docker-compose.api.yml` | `3000` |
+| `worker-1` | Worker replica 1 | `server/docker-compose.worker.yml` | optional `3001` |
+| `worker-2` | Worker replica 2 | `server/docker-compose.worker.yml` | optional `3001` |
+| `client-gateway` | React app + nginx gateway | `client/docker-compose.yml` | `80`, later `443` |
 
 Runtime flow:
 
@@ -22,10 +24,11 @@ Browser
   -> client-gateway
       -> /api -> api-1/api-2
       -> /ws  -> api-1/api-2
+      -> /storage -> MinIO on postgres droplet
 
 api-1/api-2
   -> Postgres
-  -> MinIO on postgres droplet for shared avatars/files
+  -> MinIO
   -> Redis
   -> RabbitMQ
   -> simulator-provider when starting simulation
@@ -37,13 +40,68 @@ worker-1/worker-2
   -> Redis live snapshots and polling locks
 ```
 
-Repository:
+## 1. Deployment Checklist
 
-```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
+Use this as the master checklist.
+
+- [ ] Commit and push all local changes before touching droplets.
+- [ ] Create all droplets.
+- [ ] Fill the IP worksheet below.
+- [ ] Install Docker on every droplet.
+- [ ] Clone the repo on every droplet.
+- [ ] Put the correct `.env` file on every droplet.
+- [ ] Start `postgres` droplet.
+- [ ] Start `redis-rabbitmq` droplet.
+- [ ] Start `simulator-provider` droplet.
+- [ ] Run DB migrations once from `api-1`.
+- [ ] Start `api-1`.
+- [ ] Start `api-2`.
+- [ ] Start `worker-1`.
+- [ ] Start `worker-2`.
+- [ ] Start `client-gateway`.
+- [ ] Run smoke tests from your local machine.
+- [ ] Tighten firewall rules.
+
+## 2. IP Worksheet
+
+Fill this before editing `.env` files.
+
+```text
+CLIENT_GATEWAY_IP=
+API_1_DROPLET_IP=
+API_2_DROPLET_IP=
+WORKER_1_DROPLET_IP=
+WORKER_2_DROPLET_IP=
+POSTGRES_DROPLET_IP=
+QUEUE_DROPLET_IP=
+SIMULATOR_DROPLET_IP=46.101.117.229
+YOUR_HOME_IP=
 ```
 
-Install Docker once on every droplet:
+Keep the generated secret values in local `.env` files. Do not commit them.
+
+## 3. Before Droplets
+
+Run this locally after code changes are ready:
+
+```powershell
+git status
+git add .
+git commit -m "Prepare git-based multi-droplet deployment"
+git push
+```
+
+Check that real `.env` files are ignored:
+
+```powershell
+git check-ignore -v server\.env simulator\.env client\.env infra\postgres\.env infra\queue\.env
+```
+
+Expected: every file should be ignored.
+
+## 4. Install Docker On Every Droplet
+
+SSH into each droplet and run:
 
 ```bash
 apt update && apt upgrade -y
@@ -59,244 +117,459 @@ apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker
 systemctl enable --now docker
 ```
 
-Basic firewall shape:
+Clone the repo on every droplet:
+
+```bash
+git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
+```
+
+If the repo is already cloned:
+
+```bash
+cd /opt/shitytruckingcargoll
+git pull
+```
+
+## 5. Prepare Env Files
+
+You have two safe options.
+
+Option A: edit `.env` directly on each droplet with `nano`.
+
+Option B: edit locally, then copy with `scp`. This is easier after you replace IP placeholders.
+
+PowerShell examples:
+
+```powershell
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 infra\postgres\.env root@POSTGRES_DROPLET_IP:/opt/shitytruckingcargoll/infra/postgres/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 infra\queue\.env root@QUEUE_DROPLET_IP:/opt/shitytruckingcargoll/infra/queue/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 simulator\.env root@46.101.117.229:/opt/shitytruckingcargoll/simulator/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 server\.env root@API_1_DROPLET_IP:/opt/shitytruckingcargoll/server/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 server\.env root@API_2_DROPLET_IP:/opt/shitytruckingcargoll/server/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 server\.env root@WORKER_1_DROPLET_IP:/opt/shitytruckingcargoll/server/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 server\.env root@WORKER_2_DROPLET_IP:/opt/shitytruckingcargoll/server/.env
+scp -i C:\Users\itgro\.ssh\shitytruckingcargo_ed25519 client\.env root@CLIENT_GATEWAY_IP:/opt/shitytruckingcargoll/client/.env
+```
+
+Before copying, replace these placeholders in local `.env` files:
+
+```text
+CLIENT_GATEWAY_IP
+API_1_DROPLET_IP
+API_2_DROPLET_IP
+POSTGRES_DROPLET_IP
+QUEUE_DROPLET_IP
+```
+
+The simulator IP is already known in the current plan:
+
+```text
+46.101.117.229
+```
+
+## 6. Start Postgres + MinIO Droplet
+
+On `postgres` droplet:
+
+```bash
+cd /opt/shitytruckingcargoll/infra/postgres
+docker compose up -d
+docker compose ps
+```
+
+Smoke tests on the same droplet:
+
+```bash
+docker exec transit-grid-postgres pg_isready -U postgres -d transit_grid
+curl -f http://127.0.0.1:9000/minio/health/live
+```
+
+Expected:
+
+```text
+accepting connections
+HTTP 200 from MinIO health
+```
+
+Firewall after it works:
 
 ```bash
 ufw allow OpenSSH
-# then add only the service ports needed for that droplet
+ufw allow from API_1_DROPLET_IP to any port 5432 proto tcp
+ufw allow from API_2_DROPLET_IP to any port 5432 proto tcp
+ufw allow from WORKER_1_DROPLET_IP to any port 5432 proto tcp
+ufw allow from WORKER_2_DROPLET_IP to any port 5432 proto tcp
+ufw allow from API_1_DROPLET_IP to any port 9000 proto tcp
+ufw allow from API_2_DROPLET_IP to any port 9000 proto tcp
+ufw allow from CLIENT_GATEWAY_IP to any port 9000 proto tcp
+ufw allow from YOUR_HOME_IP to any port 9001 proto tcp
 ufw enable
 ```
 
-## Postgres + Object Storage Droplet
+Hint: `9001` is only MinIO admin console. You can keep it closed.
 
-Runs Postgres and MinIO in containers with persistent Docker volumes. MinIO is S3-compatible storage used for shared avatar/profile uploads across both API replicas.
-
-```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
-cd /opt/shitytruckingcargoll/infra/postgres
-cp .env.example .env
-nano .env
-docker compose up -d
-docker compose ps
-```
-
-Example `.env`:
-
-```env
-POSTGRES_DB=transit_grid
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=replace-with-strong-postgres-password
-POSTGRES_PUBLIC_PORT=5432
-MINIO_ROOT_USER=transitgrid
-MINIO_ROOT_PASSWORD=replace-with-strong-minio-password
-MINIO_BUCKET=transit-grid-uploads
-MINIO_API_PUBLIC_PORT=9000
-MINIO_CONSOLE_PUBLIC_PORT=9001
-```
-
-API and worker droplets will use:
-
-```env
-DATABASE_URL=postgresql://postgres:POSTGRES_PASSWORD@POSTGRES_DROPLET_IP:5432/transit_grid?schema=public
-```
-
-API droplets will use MinIO as object storage:
-
-```env
-OBJECT_STORAGE_ENDPOINT=http://POSTGRES_DROPLET_IP:9000
-OBJECT_STORAGE_REGION=us-east-1
-OBJECT_STORAGE_BUCKET=transit-grid-uploads
-OBJECT_STORAGE_ACCESS_KEY_ID=transitgrid
-OBJECT_STORAGE_SECRET_ACCESS_KEY=MINIO_ROOT_PASSWORD
-OBJECT_STORAGE_PUBLIC_BASE_URL=http://CLIENT_GATEWAY_IP/storage
-```
-
-Open:
-
-- `5432` only to `api-1`, `api-2`, `worker-1`, and `worker-2`.
-- `9000` only to `api-1`, `api-2`, and `client-gateway`.
-- `9001` only to your IP, or keep it closed.
-
-Manual backup:
+Backup command:
 
 ```bash
+mkdir -p /opt/shitytruckingcargoll/infra/postgres/backups
 docker exec transit-grid-postgres pg_dump -U postgres transit_grid > /opt/shitytruckingcargoll/infra/postgres/backups/transit_grid_$(date +%F_%H%M).sql
 ```
 
-## Redis + RabbitMQ Droplet
+## 7. Start Redis + RabbitMQ Droplet
 
-Runs Redis and RabbitMQ in containers with persistent Docker volumes.
+On `redis-rabbitmq` droplet:
 
 ```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
 cd /opt/shitytruckingcargoll/infra/queue
-cp .env.example .env
-nano .env
 docker compose up -d
 docker compose ps
 ```
 
-Example `.env`:
-
-```env
-REDIS_PASSWORD=replace-with-strong-redis-password
-REDIS_PUBLIC_PORT=6379
-RABBITMQ_DEFAULT_USER=transit
-RABBITMQ_DEFAULT_PASS=replace-with-strong-rabbitmq-password
-RABBITMQ_DEFAULT_VHOST=transit_grid
-RABBITMQ_PUBLIC_PORT=5672
-RABBITMQ_MANAGEMENT_PUBLIC_PORT=15672
-```
-
-API and worker droplets will use:
-
-```env
-REDIS_URL=redis://:REDIS_PASSWORD@QUEUE_DROPLET_IP:6379
-RABBITMQ_URL=amqp://transit:RABBITMQ_DEFAULT_PASS@QUEUE_DROPLET_IP:5672/transit_grid
-```
-
-Open `6379` and `5672` only to `api-1`, `api-2`, `worker-1`, and `worker-2`. Open `15672` only to your IP, or keep it closed.
-
-## API Droplet
-
-Run this on both `api-1` and `api-2`. Both droplets use the same `.env`.
+Smoke tests on the same droplet:
 
 ```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
+set -a
+. ./.env
+set +a
+docker exec transit-grid-redis redis-cli -a "$REDIS_PASSWORD" ping
+docker exec transit-grid-rabbitmq rabbitmq-diagnostics ping
+```
+
+Expected:
+
+```text
+PONG
+Ping succeeded
+```
+
+Firewall after it works:
+
+```bash
+ufw allow OpenSSH
+ufw allow from API_1_DROPLET_IP to any port 6379 proto tcp
+ufw allow from API_2_DROPLET_IP to any port 6379 proto tcp
+ufw allow from WORKER_1_DROPLET_IP to any port 6379 proto tcp
+ufw allow from WORKER_2_DROPLET_IP to any port 6379 proto tcp
+ufw allow from API_1_DROPLET_IP to any port 5672 proto tcp
+ufw allow from API_2_DROPLET_IP to any port 5672 proto tcp
+ufw allow from WORKER_1_DROPLET_IP to any port 5672 proto tcp
+ufw allow from WORKER_2_DROPLET_IP to any port 5672 proto tcp
+ufw allow from YOUR_HOME_IP to any port 15672 proto tcp
+ufw enable
+```
+
+Hint: `15672` is RabbitMQ admin UI. You can keep it closed.
+
+## 8. Start Simulator Provider Droplet
+
+On `simulator-provider` droplet:
+
+```bash
+cd /opt/shitytruckingcargoll/simulator
+docker compose up -d --build
+docker compose ps
+```
+
+Smoke test from your local machine:
+
+```powershell
+Invoke-RestMethod http://46.101.117.229:8001/health
+```
+
+Smoke test protected endpoint:
+
+```powershell
+Invoke-RestMethod `
+  -Uri http://46.101.117.229:8001/v1/provider
+```
+
+Firewall after it works:
+
+```bash
+ufw allow OpenSSH
+ufw allow from API_1_DROPLET_IP to any port 8001 proto tcp
+ufw allow from API_2_DROPLET_IP to any port 8001 proto tcp
+ufw allow from WORKER_1_DROPLET_IP to any port 8001 proto tcp
+ufw allow from WORKER_2_DROPLET_IP to any port 8001 proto tcp
+ufw allow from YOUR_HOME_IP to any port 8001 proto tcp
+ufw enable
+```
+
+## 9. Run Migrations Once From API-1
+
+On `api-1` droplet:
+
+```bash
 cd /opt/shitytruckingcargoll/server
-cp .env.example .env
-nano .env
+docker compose -f docker-compose.api.yml --profile migrate run --rm migrate
+```
+
+Expected: Prisma migration deploy completes without errors.
+
+Important: do this once from `api-1`, not from both API droplets at the same time.
+
+## 10. Start API-1 And API-2
+
+On `api-1`:
+
+```bash
+cd /opt/shitytruckingcargoll/server
 docker compose -f docker-compose.api.yml up -d --build api
 docker compose -f docker-compose.api.yml ps
 ```
 
-Run migrations once from `api-1` before starting or updating the API fleet:
+On `api-2`:
 
 ```bash
-docker compose -f docker-compose.api.yml --profile migrate run --rm migrate
-```
-
-Required `.env` values:
-
-```env
-DATABASE_URL=postgresql://postgres:POSTGRES_PASSWORD@POSTGRES_DROPLET_IP:5432/transit_grid?schema=public
-REDIS_URL=redis://:REDIS_PASSWORD@QUEUE_DROPLET_IP:6379
-RABBITMQ_URL=amqp://transit:RABBITMQ_DEFAULT_PASS@QUEUE_DROPLET_IP:5672/transit_grid
-JWT_SECRET=replace-with-long-random-secret
-CORS_ORIGIN=http://CLIENT_GATEWAY_IP
-PUBLIC_BASE_URL=http://CLIENT_GATEWAY_IP
-SIMULATOR_URL=http://SIMULATOR_DROPLET_IP:8001
-TELEMATICS_PROVIDER_API_KEY=same-value-as-simulator-PROVIDER_API_KEY
-```
-
-Object storage is MinIO on the Postgres droplet:
-
-```env
-OBJECT_STORAGE_ENDPOINT=http://POSTGRES_DROPLET_IP:9000
-OBJECT_STORAGE_REGION=us-east-1
-OBJECT_STORAGE_BUCKET=transit-grid-uploads
-OBJECT_STORAGE_ACCESS_KEY_ID=transitgrid
-OBJECT_STORAGE_SECRET_ACCESS_KEY=MINIO_ROOT_PASSWORD
-OBJECT_STORAGE_PUBLIC_BASE_URL=http://CLIENT_GATEWAY_IP/storage
-```
-
-Update:
-
-```bash
-cd /opt/shitytruckingcargoll
-git pull
-cd server
-docker compose -f docker-compose.api.yml up -d --build api
-```
-
-During updates, run the migration command once from `api-1`, then rebuild/restart `api-1` and `api-2`.
-
-## Worker Droplet
-
-Run this on both `worker-1` and `worker-2`. Both droplets use the same `.env` as API, except `PORT` does not matter and `WORKER_HEALTH_PUBLIC_PORT` can differ if you expose it.
-
-```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
 cd /opt/shitytruckingcargoll/server
-cp .env.example .env
-nano .env
+docker compose -f docker-compose.api.yml up -d --build api
+docker compose -f docker-compose.api.yml ps
+```
+
+Smoke tests from your local machine:
+
+```powershell
+Invoke-RestMethod http://API_1_DROPLET_IP:3000/health/ready
+Invoke-RestMethod http://API_2_DROPLET_IP:3000/health/ready
+```
+
+Expected: both return healthy readiness JSON.
+
+Firewall after it works:
+
+```bash
+ufw allow OpenSSH
+ufw allow from CLIENT_GATEWAY_IP to any port 3000 proto tcp
+ufw allow from YOUR_HOME_IP to any port 3000 proto tcp
+ufw enable
+```
+
+Hint: after final demo setup, you can remove `YOUR_HOME_IP -> 3000` and access API only through gateway.
+
+## 11. Start Worker-1 And Worker-2
+
+On `worker-1`:
+
+```bash
+cd /opt/shitytruckingcargoll/server
 docker compose -f docker-compose.worker.yml up -d --build
 docker compose -f docker-compose.worker.yml ps
 ```
 
-Use the same `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, `SIMULATOR_URL`, and `TELEMATICS_PROVIDER_API_KEY` as the API droplets. Multiple workers are expected; provider polling uses Redis lease/dedupe.
-
-Update:
+On `worker-2`:
 
 ```bash
-cd /opt/shitytruckingcargoll
-git pull
-cd server
+cd /opt/shitytruckingcargoll/server
 docker compose -f docker-compose.worker.yml up -d --build
+docker compose -f docker-compose.worker.yml ps
 ```
 
-## Client Droplet
-
-Runs the React static app and acts as the public nginx gateway/load balancer for both API droplets.
+Smoke tests from each worker droplet:
 
 ```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
+curl -f http://127.0.0.1:3001/health/ready
+docker logs --tail 80 transit-grid-worker
+```
+
+Expected:
+
+```text
+health ready OK
+Telemetry worker is consuming events
+Telematics provider polling enabled
+```
+
+Note: two workers are safe. RabbitMQ distributes queue messages, and Redis lock/dedupe prevents duplicate provider polling ingestion.
+
+## 12. Start Client Gateway
+
+On `client-gateway` droplet:
+
+```bash
 cd /opt/shitytruckingcargoll/client
-cp .env.droplet.example .env
-nano .env
 docker compose up -d --build
 docker compose ps
 ```
 
-Example `.env`:
+Smoke tests from your local machine:
+
+```powershell
+Invoke-WebRequest http://CLIENT_GATEWAY_IP/
+Invoke-RestMethod http://CLIENT_GATEWAY_IP/health/ready
+```
+
+Storage is best verified after uploading an avatar in the app, because MinIO may reject raw bucket listing even when file downloads work.
+
+Open the app:
+
+```text
+http://CLIENT_GATEWAY_IP
+```
+
+## 13. Final End-To-End Smoke Test
+
+Do this in the UI:
+
+- [ ] Open `http://CLIENT_GATEWAY_IP`.
+- [ ] Sign in or create an account.
+- [ ] Upload an avatar.
+- [ ] Refresh several times; avatar should still load.
+- [ ] Create or open a shipment.
+- [ ] Assign a truck.
+- [ ] Check that simulator starts.
+- [ ] Check that worker moves shipment from assigned to in transit.
+- [ ] Check map/progress updates.
+
+Useful URLs:
+
+```text
+http://CLIENT_GATEWAY_IP/health
+http://CLIENT_GATEWAY_IP/status
+http://CLIENT_GATEWAY_IP/docs
+http://CLIENT_GATEWAY_IP/metrics
+```
+
+Useful logs:
+
+```bash
+docker logs --tail 100 transit-grid-api
+docker logs --tail 100 transit-grid-worker
+docker logs --tail 100 telematics-provider
+docker logs --tail 100 transit-grid-postgres
+docker logs --tail 100 transit-grid-minio
+docker logs --tail 100 transit-grid-redis
+docker logs --tail 100 transit-grid-rabbitmq
+docker logs --tail 100 transit-grid-client
+```
+
+## 14. Update Procedure
+
+For code updates:
+
+```bash
+cd /opt/shitytruckingcargoll
+git pull
+```
+
+If Prisma migrations changed, run once on `api-1`:
+
+```bash
+cd /opt/shitytruckingcargoll/server
+docker compose -f docker-compose.api.yml --profile migrate run --rm migrate
+```
+
+Restart changed services:
+
+```bash
+# API droplets
+cd /opt/shitytruckingcargoll/server
+docker compose -f docker-compose.api.yml up -d --build api
+
+# Worker droplets
+cd /opt/shitytruckingcargoll/server
+docker compose -f docker-compose.worker.yml up -d --build
+
+# Client gateway
+cd /opt/shitytruckingcargoll/client
+docker compose up -d --build
+
+# Simulator provider
+cd /opt/shitytruckingcargoll/simulator
+docker compose up -d --build
+```
+
+Data services usually do not need rebuilds unless `infra/postgres` or `infra/queue` changed.
+
+## 15. Troubleshooting
+
+API cannot connect to Postgres:
+
+```bash
+docker logs --tail 100 transit-grid-api
+```
+
+Check `DATABASE_URL`, Postgres firewall, and `docker compose ps` on the Postgres droplet.
+
+API cannot connect to Redis/RabbitMQ:
+
+```bash
+docker logs --tail 100 transit-grid-api
+docker logs --tail 100 transit-grid-worker
+```
+
+Check `REDIS_URL`, `RABBITMQ_URL`, queue droplet firewall, and passwords.
+
+App opens but API calls fail:
+
+```bash
+docker logs --tail 100 transit-grid-client
+```
+
+Check `API_UPSTREAM_1`, `API_UPSTREAM_2`, API health, and API firewalls.
+
+WebSocket does not update:
+
+Check that `/ws/` reaches API through client gateway and that Redis is available.
+
+Shipments do not move:
+
+Check worker logs:
+
+```bash
+docker logs --tail 100 transit-grid-worker
+```
+
+Look for:
+
+```text
+Telemetry worker is consuming events
+Telematics provider polling enabled
+```
+
+Avatar upload works but image does not load:
+
+Check these env values on API droplets:
 
 ```env
-VITE_API_URL=/api
-VITE_WS_URL=
-API_UPSTREAM_1=API_1_DROPLET_IP:3000
-API_UPSTREAM_2=API_2_DROPLET_IP:3000
+OBJECT_STORAGE_ENDPOINT=http://POSTGRES_DROPLET_IP:9000
+OBJECT_STORAGE_PUBLIC_BASE_URL=http://CLIENT_GATEWAY_IP/storage
+```
+
+Check these env values on client gateway:
+
+```env
 STORAGE_UPSTREAM=POSTGRES_DROPLET_IP:9000
 OBJECT_STORAGE_BUCKET=transit-grid-uploads
-CLIENT_PORT=80
 ```
 
-The browser talks only to the client gateway. The gateway proxies `/api`, `/ws`, `/docs`, `/metrics`, `/health`, and `/status` to `api-1`/`api-2`. It also proxies `/storage/...` to MinIO on the Postgres droplet.
-
-Update:
+MinIO smoke test:
 
 ```bash
-cd /opt/shitytruckingcargoll
-git pull
-cd client
-docker compose up -d --build
+curl -f http://POSTGRES_DROPLET_IP:9000/minio/health/live
 ```
 
-## Simulator Provider Droplet
+## 16. Scale Later
 
-Runs the standalone telematics-provider API. This provider does not know Transit Grid. Transit Grid knows and polls the provider.
+More API capacity:
 
-```bash
-git clone https://github.com/drtx15/shityTruckingCargoLLC.git /opt/shitytruckingcargoll
-cd /opt/shitytruckingcargoll/simulator
-cp .env.example .env
-nano .env
-docker compose up -d --build
-docker compose ps
-```
+- Create `api-3`.
+- Copy `server/.env`.
+- Run `server/docker-compose.api.yml`.
+- Add `API_3_DROPLET_IP:3000` to nginx gateway template/config later.
 
-Example `.env`:
+More worker capacity:
 
-```env
-PROVIDER_NAME=Transit Grid Telematics
-PROVIDER_API_KEY=same-value-as-backend-TELEMATICS_PROVIDER_API_KEY
-MAX_ROUTE_POINTS=250
-LOCATION_EMIT_INTERVAL_SECONDS=1
-```
+- Create `worker-3`.
+- Copy `server/.env`.
+- Run `server/docker-compose.worker.yml`.
 
-## Notes
+More simulator capacity:
 
-- API scaling: add another API droplet and add it to the client gateway upstream list.
-- Worker scaling: add another worker droplet with the same `.env`.
-- Database is the main future bottleneck. Back it up before every serious demo.
-- Use firewall rules so public traffic reaches only the intended ports.
-- For HTTPS later, put Caddy or nginx TLS in front of the client gateway and simulator provider.
+- Add another simulator provider droplet later.
+- Put a small nginx load balancer in front of providers.
+- Change `SIMULATOR_URL` to provider gateway URL.
+
+Main future bottleneck:
+
+- Postgres droplet.
+- Make backups before every serious demo.
