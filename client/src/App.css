@@ -2435,31 +2435,276 @@ button:disabled:hover {
   border-top: 1px solid var(--border);
 }
 
+.profile-page {
+  width: min(1160px, 100%);
+  gap: 16px;
+}
+
+.profile-page-heading {
+  min-height: 42px;
+}
+
+.profile-heading-badge {
+  max-width: 280px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .profile-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 520px);
-  gap: 14px;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 720px);
+  gap: 16px;
   align-items: start;
 }
 
-.profile-preview-panel {
-  display: grid;
-  gap: 14px;
-  justify-items: start;
+.profile-preview-panel,
+.profile-form {
+  overflow: hidden;
+  padding: 0;
 }
 
-.profile-preview-panel h2 {
+.profile-preview-panel {
+  position: sticky;
+  top: 14px;
+}
+
+.profile-preview-panel::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: var(--accent);
+}
+
+.profile-summary-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-avatar-xl {
+  width: 82px;
+  height: 82px;
+  font-size: 1.34rem;
+}
+
+.profile-summary-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.profile-summary-copy h2 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+  font-size: 1.22rem;
+  line-height: 1.2;
 }
 
-.profile-preview-panel p,
-.profile-preview-panel span,
-.profile-preview-panel small {
-  display: block;
+.profile-summary-copy p,
+.profile-summary-copy span,
+.profile-upload-copy small {
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+.profile-summary-copy p {
+  font-size: 0.9rem;
+}
+
+.profile-summary-copy span {
+  font-size: 0.8rem;
+}
+
+.profile-meta-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 6px 16px 16px;
+}
+
+.profile-meta-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-meta-item:last-child {
+  border-bottom: 0;
+}
+
+.profile-meta-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+}
+
+.profile-meta-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.profile-meta-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.profile-meta-item strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.profile-form {
+  display: grid;
+}
+
+.profile-form-section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-section-head {
+  min-width: 0;
+}
+
+.profile-section-head h2 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.profile-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-field-wide {
+  grid-column: 1 / -1;
+}
+
+.profile-avatar-editor {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.profile-upload-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.profile-upload-copy strong {
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.profile-upload-copy small {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.profile-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.profile-file-picker {
+  position: relative;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.profile-file-picker:hover {
+  background: var(--accent-strong);
+}
+
+.profile-file-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.profile-form-actions {
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface-muted);
+}
+
+.profile-form-actions button {
+  min-width: 132px;
+}
+
+.profile-form-actions .notice-text,
+.profile-form-actions .error-text {
+  margin: 0;
+  text-align: right;
 }
 
 .data-row strong {
@@ -2622,6 +2867,10 @@ button:disabled:hover {
     position: static;
   }
 
+  .profile-preview-panel {
+    position: static;
+  }
+
   .command-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -2738,8 +2987,30 @@ button:disabled:hover {
 
   .auth-stepper,
   .split-fields,
-  .avatar-upload-row {
+  .avatar-upload-row,
+  .profile-field-grid,
+  .profile-avatar-editor {
     grid-template-columns: 1fr;
+  }
+
+  .profile-summary-main {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-page-heading,
+  .profile-upload-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .profile-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-form-actions .notice-text,
+  .profile-form-actions .error-text {
+    text-align: left;
   }
 
   .auth-step-actions {
