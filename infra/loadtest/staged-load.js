@@ -19,7 +19,6 @@ const serviceContainers = [
     'lt-redis',
     'lt-rabbitmq',
     'lt-simulator',
-    'lt-osrm-mock',
 ]
 
 const cities = [

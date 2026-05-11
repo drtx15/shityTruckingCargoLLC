@@ -76,6 +76,19 @@ const roleScopes = {
   ADMIN: 'Full platform administration'
 }
 
+const roleProfilePaths = {
+  CUSTOMER: '/customer/profile',
+  DRIVER: '/driver/profile',
+  DISPATCHER: '/dispatcher/profile',
+  FLEET_MANAGER: '/fleet/profile',
+  BROKER: '/broker/profile',
+  ADMIN: '/admin/profile'
+}
+
+function getRoleProfile(role) {
+  return roleProfilePaths[role] || getRoleHome(role)
+}
+
 function initialsFor(user) {
   const source = user?.displayName || user?.email || 'Transit Grid'
   return source
@@ -162,6 +175,16 @@ function RoleRedirect() {
   return <Navigate to={user ? getRoleHome(user.role) : '/login'} replace />
 }
 
+function ProfileRedirect() {
+  const { loading, user } = useAuth()
+
+  if (loading) {
+    return <div className="loading-page">Loading workspace...</div>
+  }
+
+  return <Navigate to={user ? getRoleProfile(user.role) : '/login'} replace />
+}
+
 function ProtectedRoute({ roles, children }) {
   const { loading, user } = useAuth()
 
@@ -185,6 +208,10 @@ function RoleLayout({ roles }) {
   const { signOut, user } = useAuth()
   const primaryRole = user?.role
   const links = roleLinks[primaryRole] || []
+  const handleSignOut = () => {
+    signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <ProtectedRoute roles={roles}>
@@ -217,21 +244,8 @@ function RoleLayout({ roles }) {
               <NavLink key={to} to={to}>{label}</NavLink>
             ))}
             <span className="nav-section-label">Account</span>
-            <NavLink to="/profile">Profile</NavLink>
+            <NavLink to={getRoleProfile(primaryRole)}>Profile</NavLink>
           </nav>
-          <div className="workspace-sidebar-footer">
-            <ThemeToggle />
-            <button
-              type="button"
-              className="secondary-button workspace-signout"
-              onClick={() => {
-                signOut()
-                navigate('/login', { replace: true })
-              }}
-            >
-              Sign out
-            </button>
-          </div>
         </aside>
         <main className="workspace-main">
           <header className="workspace-topbar">
@@ -239,9 +253,11 @@ function RoleLayout({ roles }) {
               <p className="eyebrow">Workspace</p>
               <strong>{roleLabels[primaryRole] || 'Transit Grid'}</strong>
             </div>
-            <div className="topbar-profile">
-              <UserAvatar user={user} size="small" />
-              <span>{user?.displayName || user?.email}</span>
+            <div className="topbar-actions">
+              <ThemeToggle />
+              <button type="button" className="secondary-button topbar-signout" onClick={handleSignOut}>
+                Sign out
+              </button>
             </div>
           </header>
           <Outlet />
@@ -285,12 +301,14 @@ function AppRoutes() {
           element={<ShipmentNewPage eyebrow="Customer order" title="New order" detailBasePath="/customer/orders" hideShipper />}
         />
         <Route path="orders/:id" element={<ShipmentDetailPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/driver" element={<RoleLayout roles={['DRIVER']} />}>
         <Route index element={<Navigate to="/driver/road" replace />} />
         <Route path="road" element={<DriverRoadPage />} />
         <Route path="proof-of-delivery" element={<ProofOfDeliveryPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/dispatcher" element={<RoleLayout roles={['DISPATCHER']} />}>
@@ -302,6 +320,7 @@ function AppRoutes() {
         <Route path="loads/:id" element={<ShipmentDetailPage />} />
         <Route path="exceptions" element={<DispatcherExceptionsPage />} />
         <Route path="map" element={<DispatcherMapPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/fleet" element={<RoleLayout roles={['FLEET_MANAGER']} />}>
@@ -314,6 +333,7 @@ function AppRoutes() {
         <Route path="trucks" element={<TrucksPage />} />
         <Route path="drivers" element={<FleetDriversPage />} />
         <Route path="capacity" element={<FleetCapacityPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/broker" element={<RoleLayout roles={['BROKER']} />}>
@@ -326,6 +346,7 @@ function AppRoutes() {
           element={<ShipmentNewPage eyebrow="Broker order" title="Create customer order" detailBasePath="/broker/orders" />}
         />
         <Route path="orders/:id" element={<ShipmentDetailPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route path="/admin" element={<RoleLayout roles={['ADMIN']} />}>
@@ -333,6 +354,7 @@ function AppRoutes() {
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="webhooks" element={<WebhooksPage />} />
         <Route path="users" element={<AdminUsersPage />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       <Route
@@ -345,11 +367,7 @@ function AppRoutes() {
       />
       <Route
         path="/profile"
-        element={(
-          <ProtectedRoute roles={allRoles}>
-            <ProfilePage />
-          </ProtectedRoute>
-        )}
+        element={<ProfileRedirect />}
       />
       <Route path="/shipments" element={<RoleRedirect />} />
       <Route path="/shipments/new" element={<RoleRedirect />} />
